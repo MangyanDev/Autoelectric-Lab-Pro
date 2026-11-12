@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { analyzePcbImage } from '../services/pcbImageAnalysisService';
 import { ImageAnalysisResult, ImageAnalysisComponent, ImageAnalysisNet } from '../server/services/imageAnalysisTypes';
 import {
@@ -359,6 +359,66 @@ export const SchematicPcbScanner: React.FC = () => {
   const [showPinMarkers, setShowPinMarkers] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1.0);
 
+  // Revoke any active ObjectURL when replaced or unmounted to prevent blob memory leaks
+  useEffect(() => {
+    return () => {
+      if (uploadedImageUrl && uploadedImageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(uploadedImageUrl);
+      }
+    };
+  }, [uploadedImageUrl]);
+
+  // Downscale high-resolution camera/PCB uploads to <=1600px before storing preview or sending to AI
+  const prepareOptimizedPcbImage = async (
+    file: File
+  ): Promise<{ previewUrl: string; imageBase64: string }> => {
+    const MAX_DIM = 1600;
+    const rawUrl = URL.createObjectURL(file);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error('Failed to decode uploaded PCB image'));
+        el.src = rawUrl;
+      });
+
+      const scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+      const targetW = Math.max(1, Math.round(img.naturalWidth * scale));
+      const targetH = Math.max(1, Math.round(img.naturalHeight * scale));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Canvas 2D context unavailable');
+      }
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (result) => (result ? resolve(result) : reject(new Error('Image compression failed'))),
+          'image/jpeg',
+          0.85
+        );
+      });
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const imageBase64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+
+      // Immediately release offscreen canvas texture backing memory
+      canvas.width = 0;
+      canvas.height = 0;
+
+      return {
+        previewUrl: URL.createObjectURL(blob),
+        imageBase64,
+      };
+    } finally {
+      URL.revokeObjectURL(rawUrl);
+    }
+  };
+
   // Load sample board
   const loadSample = (board: SampleBoard) => {
     setSelectedBoard(board);
@@ -375,58 +435,52 @@ export const SchematicPcbScanner: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 8 * 1024 * 1024) {
-      alert('File size exceeds 8 MB payload limit.');
+    if (file.size > 12 * 1024 * 1024) {
+      setStatusMessage('ERROR: File size exceeds 12 MB upload limit.');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async e => {
-      const dataUrl = e.target?.result as string;
-      setUploadedImageUrl(dataUrl);
+    setIsAnalyzing(true);
+    setStatusMessage('OPTIMIZING IMAGE & RUNNING AI ANALYSIS: Neural vision extraction...');
 
-      const imageBase64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+    try {
+      const { previewUrl, imageBase64 } = await prepareOptimizedPcbImage(file);
+      setUploadedImageUrl(previewUrl);
 
-      setIsAnalyzing(true);
-      setStatusMessage('AI ANALYSIS RUNNING: Neural vision component & copper track extraction...');
+      const analysis: ImageAnalysisResult = await analyzePcbImage({
+        imageBase64,
+        documentName: file.name,
+        documentType: 'pcb',
+      });
 
-      try {
-        const analysis: ImageAnalysisResult = await analyzePcbImage({
-          imageBase64,
-          documentName: file.name,
-          documentType: 'pcb',
-        });
-
-        if (analysis.components && analysis.components.length > 0) {
-          const normalizedComps: DetailedPcbComponent[] = analysis.components.map(c => ({
-            ...c,
-            verificationStatus: 'UNVERIFIED' as const,
-            pinSpecs: c.terminalIds?.map((t, idx) => ({
-              pinNumber: idx + 1,
-              pinName: t,
-              category: 'signal_in' as const,
-              nominalVoltage: 5.0,
-              connectedNetId: 'NET_AUTO_DETECTED',
-              notes: 'Extracted by AI computer vision model.',
-            })),
-          }));
-          setComponents(normalizedComps);
-          setNets(analysis.nets || []);
-          setSelectedCompRef(normalizedComps[0]?.refDes || null);
-          setStatusMessage(
-            `AI MAPPING COMPLETE: ${normalizedComps.length} components detected (${(analysis.confidenceScore * 100).toFixed(0)}% confidence). Technician sign-off required.`
-          );
-        } else {
-          setStatusMessage('MANUAL REVIEW MODE: Image loaded. No confident components identified by AI.');
-        }
-      } catch (err) {
-        console.warn('AI analysis fallback to manual:', err);
-        setStatusMessage('AI ANALYSIS UNAVAILABLE: Provider offline. Manual review mode active.');
-      } finally {
-        setIsAnalyzing(false);
+      if (analysis.components && analysis.components.length > 0) {
+        const normalizedComps: DetailedPcbComponent[] = analysis.components.map(c => ({
+          ...c,
+          verificationStatus: 'UNVERIFIED' as const,
+          pinSpecs: c.terminalIds?.map((t, idx) => ({
+            pinNumber: idx + 1,
+            pinName: t,
+            category: 'signal_in' as const,
+            nominalVoltage: 5.0,
+            connectedNetId: 'NET_AUTO_DETECTED',
+            notes: 'Extracted by AI computer vision model.',
+          })),
+        }));
+        setComponents(normalizedComps);
+        setNets(analysis.nets || []);
+        setSelectedCompRef(normalizedComps[0]?.refDes || null);
+        setStatusMessage(
+          `AI MAPPING COMPLETE: ${normalizedComps.length} components detected (${(analysis.confidenceScore * 100).toFixed(0)}% confidence). Technician sign-off required.`
+        );
+      } else {
+        setStatusMessage('MANUAL REVIEW MODE: Optimized image loaded. No confident components identified by AI.');
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('AI analysis fallback to manual:', err);
+      setStatusMessage('AI ANALYSIS UNAVAILABLE: Provider offline. Manual review mode active.');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   // Add Manual Component Observation
@@ -689,6 +743,7 @@ export const SchematicPcbScanner: React.FC = () => {
                 <img
                   src={uploadedImageUrl}
                   alt="Uploaded PCB Scan Document"
+                  decoding="async"
                   className="absolute inset-0 w-full h-full object-contain opacity-85 pointer-events-none"
                 />
               ) : (

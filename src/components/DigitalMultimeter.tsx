@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MultimeterState, MultimeterMode, EcuPin, BenchComponent } from '../types/ecu';
 import { Volume2, VolumeX, AlertTriangle, ArrowLeftRight, X, Disc, PauseCircle } from 'lucide-react';
 import { playContinuityBeep, playHoldBeep } from '../utils/audioFeedback';
+import { recordRenderCycle } from '../utils/perfMonitor';
 
 interface DigitalMultimeterProps {
   multimeter: MultimeterState;
@@ -53,13 +54,17 @@ const MODE_EXPLANATIONS: Record<MultimeterMode, { title: string; desc: string; u
   },
 };
 
-export const DigitalMultimeter: React.FC<DigitalMultimeterProps> = ({
+export const DigitalMultimeter: React.FC<DigitalMultimeterProps> = React.memo(({
   multimeter,
   onChange,
   reading,
   pins,
   components,
 }) => {
+  useEffect(() => {
+    recordRenderCycle('DigitalMultimeter');
+  });
+
   const [hoveredMode, setHoveredMode] = useState<MultimeterMode | null>(null);
   const [beepEnabled, setBeepEnabled] = useState<boolean>(true);
   const [heldReading, setHeldReading] = useState<DigitalMultimeterProps['reading'] | null>(null);
@@ -525,4 +530,4 @@ export const DigitalMultimeter: React.FC<DigitalMultimeterProps> = ({
       </div>
     </div>
   );
-};
+});

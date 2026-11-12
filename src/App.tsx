@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DEFAULT_ECU_PINS,
   DEFAULT_BENCH_COMPONENTS,
@@ -18,15 +18,37 @@ import { BenchPowerSupply } from './components/BenchPowerSupply';
 import { DigitalMultimeter } from './components/DigitalMultimeter';
 import { FaultInjector } from './components/FaultInjector';
 import { WiringCanvas } from './components/WiringCanvas';
-import { Oscilloscope } from './components/Oscilloscope';
-import { SchematicPcbScanner } from './components/SchematicPcbScanner';
-import { EcuConnectorPinouts } from './components/EcuConnectorPinouts';
-import { IntroductionModal } from './components/IntroductionModal';
-import { EcuRepairKnowledgeBase } from './components/EcuRepairKnowledgeBase';
-import { GroundedSearchModal } from './components/GroundedSearchModal';
-import { BenchCloudModal } from './components/BenchCloudModal';
-import { OfflineAssistantModal } from './components/OfflineAssistantModal';
 import { DiagnosticGuidePanel } from './components/DiagnosticGuidePanel';
+import { PerformanceMonitorWidget } from './components/PerformanceMonitorWidget';
+import { recordRenderCycle } from './utils/perfMonitor';
+
+const Oscilloscope = lazy(() =>
+  import('./components/Oscilloscope').then((m) => ({ default: m.Oscilloscope }))
+);
+const SchematicPcbScanner = lazy(() =>
+  import('./components/SchematicPcbScanner').then((m) => ({ default: m.SchematicPcbScanner }))
+);
+const EcuConnectorPinouts = lazy(() =>
+  import('./components/EcuConnectorPinouts').then((m) => ({ default: m.EcuConnectorPinouts }))
+);
+const EcuRepairKnowledgeBase = lazy(() =>
+  import('./components/EcuRepairKnowledgeBase').then((m) => ({ default: m.EcuRepairKnowledgeBase }))
+);
+const IntroductionModal = lazy(() =>
+  import('./components/IntroductionModal').then((m) => ({ default: m.IntroductionModal }))
+);
+const GroundedSearchModal = lazy(() =>
+  import('./components/GroundedSearchModal').then((m) => ({ default: m.GroundedSearchModal }))
+);
+const BenchCloudModal = lazy(() =>
+  import('./components/BenchCloudModal').then((m) => ({ default: m.BenchCloudModal }))
+);
+const OfflineAssistantModal = lazy(() =>
+  import('./components/OfflineAssistantModal').then((m) => ({ default: m.OfflineAssistantModal }))
+);
+const ThreeBenchTwin = lazy(() =>
+  import('./components/ThreeBenchTwin').then((m) => ({ default: m.ThreeBenchTwin }))
+);
 import {
   SavedBenchSession,
   SavedDiagnosticLog,
@@ -44,9 +66,10 @@ import {
   Save,
   Bot,
   PanelRightOpen,
+  Box,
 } from 'lucide-react';
 
-type LabTab = 'BENCH_LAB' | 'WIRING_DIAGRAM' | 'ECU_PINOUT' | 'OSCILLOSCOPE' | 'PCB_SCANNER' | 'REPAIR_GUIDE';
+type LabTab = 'BENCH_LAB' | 'WIRING_DIAGRAM' | 'THREE_D_TWIN' | 'ECU_PINOUT' | 'OSCILLOSCOPE' | 'PCB_SCANNER' | 'REPAIR_GUIDE';
 type RackFilter = 'ALL' | 'DMM_POWER' | 'FAULT_MATRIX';
 
 export default function App() {
@@ -58,14 +81,16 @@ export default function App() {
   // Saved Bench & Diagnostic Logs Modal
   const [showCloudModal, setShowCloudModal] = useState(false);
 
-  // 100% Offline MiniSearch Diagnostic Chatbot Modal
+  // 100% Offline MiniSearch Diagnostic Chatbot Modal (lazy-initialized on first open)
   const [showOfflineBot, setShowOfflineBot] = useState(false);
+  const [hasOpenedOfflineBot, setHasOpenedOfflineBot] = useState(false);
   const [offlineBotPrompt, setOfflineBotPrompt] = useState<string | null>(null);
   const [showDiagnosticGuide, setShowDiagnosticGuide] = useState(true);
   const [savedLogs, setSavedLogs] = useState<SavedDiagnosticLog[]>([]);
   const [savedSessions, setSavedSessions] = useState<SavedBenchSession[]>([]);
 
   const handleOpenOfflineBot = (prompt?: string) => {
+    setHasOpenedOfflineBot(true);
     setOfflineBotPrompt(prompt || null);
     setShowOfflineBot(true);
   };
@@ -136,68 +161,118 @@ export default function App() {
     holdValue: false,
   });
 
-  // Calculate live circuit solution based on all physical parameters
-  const circuitSolution = solveCircuit(
-    powerSupply,
-    pins,
-    faults,
-    wires,
-    components,
-    multimeter
+  useEffect(() => {
+    recordRenderCycle('App');
+  });
+
+  // Memoize MNA circuit solution so UI-only state changes never re-allocate solver matrices
+  const circuitSolution = useMemo(() => {
+    recordRenderCycle('MnaSolver');
+    return solveCircuit(powerSupply, pins, faults, wires, components, multimeter);
+  }, [powerSupply, pins, faults, wires, components, multimeter]);
+
+  const offlineBotLiveContext = useMemo(
+    () => ({
+      powerSupply,
+      pins,
+      wires,
+      faults,
+      activeDTCs: circuitSolution.activeDTCs,
+      nodeVoltages: circuitSolution.nodeVoltages,
+      supplyCurrentDrawAmps: circuitSolution.supplyCurrentDrawAmps,
+      isSupplyCurrentTripped: circuitSolution.isSupplyCurrentTripped,
+      multimeter,
+      multimeterDisplay: circuitSolution.multimeterReading.display,
+      multimeterUnit: circuitSolution.multimeterReading.unit,
+      multimeterWarning: circuitSolution.multimeterReading.warningMessage,
+      selectedPinId,
+    }),
+    [powerSupply, pins, wires, faults, circuitSolution, multimeter, selectedPinId]
   );
 
-  // Fault management handlers
-  const handleAddFault = (pinId: string, faultType: FaultType, description: string) => {
+  // Fault management handlers (stable callbacks for memoized instruments)
+  const handleAddFault = useCallback((pinId: string, faultType: FaultType, description: string) => {
     setFaults(prev => {
       const filtered = prev.filter(f => f.pinId !== pinId);
       return [...filtered, { pinId, faultType, description, timestamp: Date.now() }];
     });
-  };
+  }, []);
 
-  const handleRemoveFault = (pinId: string) => {
+  const handleRemoveFault = useCallback((pinId: string) => {
     setFaults(prev => prev.filter(f => f.pinId !== pinId));
-  };
+  }, []);
 
-  const handleClearAllFaults = () => {
+  const handleClearAllFaults = useCallback(() => {
     setFaults([]);
-  };
+  }, []);
 
-  // Wire management
-  const handleAddWire = (sourcePinId: string, targetPinId: string) => {
-    const exists = wires.some(
-      w =>
-        (w.sourcePinId === sourcePinId && w.targetPinId === targetPinId) ||
-        (w.sourcePinId === targetPinId && w.targetPinId === sourcePinId)
-    );
-    if (exists) return;
+  const handleSearchDtcFromInjector = useCallback(
+    (code: string, desc: string) => {
+      handleOpenGroundedSearch(
+        `${code} ${desc} OEM diagnostic procedure technical service bulletin`,
+        code,
+        'Universal Bench'
+      );
+    },
+    []
+  );
 
-    const newWire: WireConnection = {
-      id: `wire-${Date.now()}`,
-      sourcePinId,
-      targetPinId,
-      color: '#06b6d4',
-      label: 'Auxiliary Harness Lead',
-      isCut: false,
-      resistance: 0.05,
-    };
-    setWires(prev => [...prev, newWire]);
-  };
+  // Wire management (functional state updates keep callbacks referentially stable for React.memo(WiringCanvas))
+  const handleAddWire = useCallback(
+    (sourcePinId: string, targetPinId: string, color?: string, label?: string) => {
+      setWires(prev => {
+        const exists = prev.some(
+          w =>
+            (w.sourcePinId === sourcePinId && w.targetPinId === targetPinId) ||
+            (w.sourcePinId === targetPinId && w.targetPinId === sourcePinId)
+        );
+        if (exists) return prev;
 
-  const handleToggleCutWire = (wireId: string) => {
+        const newWire: WireConnection = {
+          id: `wire-${Date.now()}`,
+          sourcePinId,
+          targetPinId,
+          color: color || '#06b6d4',
+          label: label || 'Auxiliary Harness Lead',
+          isCut: false,
+          resistance: 0.05,
+        };
+        return [...prev, newWire];
+      });
+    },
+    []
+  );
+
+  const handleToggleCutWire = useCallback((wireId: string) => {
     setWires(prev =>
       prev.map(w => (w.id === wireId ? { ...w, isCut: !w.isCut } : w))
     );
-  };
+  }, []);
 
-  const handleDeleteWire = (wireId: string) => {
+  const handleDeleteWire = useCallback((wireId: string) => {
     setWires(prev => prev.filter(w => w.id !== wireId));
-  };
+  }, []);
 
-  const handleUpdateComponentState = (compId: string, updates: Record<string, number | boolean | string>) => {
-    setComponents(prev =>
-      prev.map(c => (c.id === compId ? { ...c, state: { ...c.state, ...updates } } : c))
-    );
-  };
+  const handleUpdateComponentState = useCallback(
+    (compId: string, updates: Record<string, number | boolean | string>) => {
+      setComponents(prev =>
+        prev.map(c => (c.id === compId ? { ...c, state: { ...c.state, ...updates } } : c))
+      );
+    },
+    []
+  );
+
+  const handleAttachProbe = useCallback((color: 'red' | 'black', pinId: string, label: string) => {
+    if (color === 'red') {
+      setMultimeter(prev => ({ ...prev, redProbe: { attachedToPinId: pinId, attachedLabel: label } }));
+    } else {
+      setMultimeter(prev => ({ ...prev, blackProbe: { attachedToPinId: pinId, attachedLabel: label } }));
+    }
+  }, []);
+
+  const handleOpenEcuPinouts = useCallback(() => {
+    setActiveTab('ECU_PINOUT');
+  }, []);
 
   // Reset entire laboratory to pristine factory state
   const handleResetLab = () => {
@@ -295,6 +370,17 @@ export default function App() {
             }`}
           >
             Harness Wiring
+          </button>
+          <button
+            onClick={() => setActiveTab('THREE_D_TWIN')}
+            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition flex items-center gap-1 ${
+              activeTab === 'THREE_D_TWIN'
+                ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
+            }`}
+          >
+            <Box className="w-3.5 h-3.5" />
+            <span>3D Bench Twin</span>
           </button>
           <button
             onClick={() => setActiveTab('ECU_PINOUT')}
@@ -489,13 +575,7 @@ export default function App() {
                     onClearAll={handleClearAllFaults}
                     selectedPinId={selectedPinId}
                     onSelectPin={setSelectedPinId}
-                    onSearchDtc={(code, desc) =>
-                      handleOpenGroundedSearch(
-                        `${code} ${desc} OEM diagnostic procedure technical service bulletin`,
-                        code,
-                        'Universal Bench'
-                      )
-                    }
+                    onSearchDtc={handleSearchDtcFromInjector}
                   />
                 )}
               </div>
@@ -513,16 +593,10 @@ export default function App() {
               onToggleCutWire={handleToggleCutWire}
               onDeleteWire={handleDeleteWire}
               multimeter={multimeter}
-              onAttachProbe={(color, pinId, label) => {
-                if (color === 'red') {
-                  setMultimeter(prev => ({ ...prev, redProbe: { attachedToPinId: pinId, attachedLabel: label } }));
-                } else {
-                  setMultimeter(prev => ({ ...prev, blackProbe: { attachedToPinId: pinId, attachedLabel: label } }));
-                }
-              }}
+              onAttachProbe={handleAttachProbe}
               onUpdateComponentState={handleUpdateComponentState}
               isPowerOn={powerSupply.isOutputEnabled}
-              onOpenEcuPinouts={() => setActiveTab('ECU_PINOUT')}
+              onOpenEcuPinouts={handleOpenEcuPinouts}
               simulationSpeed={simulationSpeed}
             />
 
@@ -577,44 +651,74 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB 2B: 3D BENCH TWIN (Three.js Interactive Hardware Twin) */}
+        {activeTab === 'THREE_D_TWIN' && (
+          <div className="flex-1 flex overflow-hidden">
+            <Suspense fallback={<div className="flex-1 hud-panel rounded-xl flex items-center justify-center text-xs font-mono text-cyan-300">Initializing 3D ECU Bench Twin...</div>}>
+              <ThreeBenchTwin
+                pins={pins}
+                wires={wires}
+                components={components}
+                faults={faults}
+                activeDTCs={circuitSolution.activeDTCs}
+                nodeVoltages={circuitSolution.nodeVoltages}
+                wireCurrentsMa={circuitSolution.wireCurrentsMa}
+                multimeter={multimeter}
+                powerSupply={powerSupply}
+                selectedPinId={selectedPinId}
+                simulationSpeed={simulationSpeed}
+                onSelectPin={setSelectedPinId}
+                onAttachProbe={handleAttachProbe}
+                onUpdateComponentState={handleUpdateComponentState}
+                onOpenOfflineBot={handleOpenOfflineBot}
+                onOpenGroundedSearch={handleOpenGroundedSearch}
+              />
+            </Suspense>
+          </div>
+        )}
+
         {/* TAB 3: ECU CONNECTOR & BENCH TEST PINOUTS */}
         {activeTab === 'ECU_PINOUT' && (
           <div className="flex-1 flex overflow-hidden">
-            <EcuConnectorPinouts
-              pins={pins}
-              nodeVoltages={circuitSolution.nodeVoltages}
-              selectedPinId={selectedPinId}
-              onSelectPin={setSelectedPinId}
-              multimeter={multimeter}
-              onAttachProbe={(color, pinId, label) => {
-                if (color === 'red') {
-                  setMultimeter(prev => ({ ...prev, redProbe: { attachedToPinId: pinId, attachedLabel: label } }));
-                } else {
-                  setMultimeter(prev => ({ ...prev, blackProbe: { attachedToPinId: pinId, attachedLabel: label } }));
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center text-xs font-mono text-cyan-300">Loading ECU Pinouts Library...</div>}>
+              <EcuConnectorPinouts
+                pins={pins}
+                nodeVoltages={circuitSolution.nodeVoltages}
+                selectedPinId={selectedPinId}
+                onSelectPin={setSelectedPinId}
+                multimeter={multimeter}
+                onAttachProbe={(color, pinId, label) => {
+                  if (color === 'red') {
+                    setMultimeter(prev => ({ ...prev, redProbe: { attachedToPinId: pinId, attachedLabel: label } }));
+                  } else {
+                    setMultimeter(prev => ({ ...prev, blackProbe: { attachedToPinId: pinId, attachedLabel: label } }));
+                  }
+                }}
+                powerSupply={powerSupply}
+                onSearchLivePinout={(model) =>
+                  handleOpenGroundedSearch(
+                    `${model} ECU bench pinout wiring diagram KL30 KL15 KL31 K-Line CAN`,
+                    '',
+                    model
+                  )
                 }
-              }}
-              powerSupply={powerSupply}
-              onSearchLivePinout={(model) =>
-                handleOpenGroundedSearch(
-                  `${model} ECU bench pinout wiring diagram KL30 KL15 KL31 K-Line CAN`,
-                  '',
-                  model
-                )
-              }
-            />
+              />
+            </Suspense>
           </div>
         )}
 
         {/* TAB 4: OSCILLOSCOPE */}
         {activeTab === 'OSCILLOSCOPE' && (
           <div className="flex-1 flex flex-col gap-3 overflow-hidden">
-            <Oscilloscope
-              isPowerOn={powerSupply.isOutputEnabled}
-              selectedSignal={hasCanFault ? 'CAN_BUS' : 'INJECTOR_PWM'}
-              hasCanFault={hasCanFault}
-              hasInjectorFault={hasInjectorFault}
-              simulationSpeed={simulationSpeed}
-            />
+            <Suspense fallback={<div className="h-[280px] hud-panel rounded-xl flex items-center justify-center text-xs font-mono text-cyan-300">Initializing Oscilloscope...</div>}>
+              <Oscilloscope
+                isPowerOn={powerSupply.isOutputEnabled}
+                selectedSignal={hasCanFault ? 'CAN_BUS' : 'INJECTOR_PWM'}
+                hasCanFault={hasCanFault}
+                hasInjectorFault={hasInjectorFault}
+                simulationSpeed={simulationSpeed}
+              />
+            </Suspense>
             {/* Split with Wiring Canvas for rapid testing */}
             <div className="flex-1 min-h-[360px] overflow-hidden">
               <WiringCanvas
@@ -628,13 +732,7 @@ export default function App() {
                 onToggleCutWire={handleToggleCutWire}
                 onDeleteWire={handleDeleteWire}
                 multimeter={multimeter}
-                onAttachProbe={(color, pinId, label) => {
-                  if (color === 'red') {
-                    setMultimeter(prev => ({ ...prev, redProbe: { attachedToPinId: pinId, attachedLabel: label } }));
-                  } else {
-                    setMultimeter(prev => ({ ...prev, blackProbe: { attachedToPinId: pinId, attachedLabel: label } }));
-                  }
-                }}
+                onAttachProbe={handleAttachProbe}
                 onUpdateComponentState={handleUpdateComponentState}
                 isPowerOn={powerSupply.isOutputEnabled}
                 simulationSpeed={simulationSpeed}
@@ -646,19 +744,23 @@ export default function App() {
         {/* TAB 4: PCB & AI SCHEMATIC SCANNER */}
         {activeTab === 'PCB_SCANNER' && (
           <div className="flex-1 flex overflow-hidden">
-            <SchematicPcbScanner />
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center text-xs font-mono text-cyan-300">Loading PCB Scanner...</div>}>
+              <SchematicPcbScanner />
+            </Suspense>
           </div>
         )}
 
         {/* TAB 5: ECU REPAIR KNOWLEDGE BASE & MANUALS */}
         {activeTab === 'REPAIR_GUIDE' && (
           <div className="flex-1 flex overflow-hidden">
-            <EcuRepairKnowledgeBase
-              savedSessions={savedSessions}
-              savedLogs={savedLogs}
-              liveActiveDtcs={circuitSolution.activeDTCs}
-              onOpenSavedBenches={() => setShowCloudModal(true)}
-            />
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center text-xs font-mono text-cyan-300">Loading Repair Knowledge Base...</div>}>
+              <EcuRepairKnowledgeBase
+                savedSessions={savedSessions}
+                savedLogs={savedLogs}
+                liveActiveDtcs={circuitSolution.activeDTCs}
+                onOpenSavedBenches={() => setShowCloudModal(true)}
+              />
+            </Suspense>
           </div>
         )}
       </div>
@@ -728,67 +830,70 @@ export default function App() {
           >
             Black COM (-)
           </button>
+          <PerformanceMonitorWidget />
         </div>
       </footer>
 
       {/* Auto-Trigger Introduction & Executive Credentials View Modal */}
-      <IntroductionModal
-        isOpen={showIntroModal}
-        onClose={() => setShowIntroModal(false)}
-      />
+      {showIntroModal && (
+        <Suspense fallback={null}>
+          <IntroductionModal
+            isOpen={showIntroModal}
+            onClose={() => setShowIntroModal(false)}
+          />
+        </Suspense>
+      )}
 
       {/* Live Google Search Grounding Modal */}
-      <GroundedSearchModal
-        isOpen={showSearchModal}
-        onClose={() => setShowSearchModal(false)}
-        initialQuery={groundedSearchQuery}
-        initialDtc={groundedSearchDtc}
-        initialEcu={groundedSearchEcu}
-      />
+      {showSearchModal && (
+        <Suspense fallback={null}>
+          <GroundedSearchModal
+            isOpen={showSearchModal}
+            onClose={() => setShowSearchModal(false)}
+            initialQuery={groundedSearchQuery}
+            initialDtc={groundedSearchDtc}
+            initialEcu={groundedSearchEcu}
+          />
+        </Suspense>
+      )}
 
       {/* Saved Bench Workspaces & Diagnostic Case Logs Modal */}
-      <BenchCloudModal
-        isOpen={showCloudModal}
-        onClose={() => setShowCloudModal(false)}
-        powerSupply={powerSupply}
-        wires={wires}
-        faults={faults}
-        components={components}
-        activeDTCs={circuitSolution.activeDTCs}
-        supplyCurrentDrawAmps={circuitSolution.supplyCurrentDrawAmps}
-        onLoadBenchSession={handleLoadBenchSession}
-      />
+      {showCloudModal && (
+        <Suspense fallback={null}>
+          <BenchCloudModal
+            isOpen={showCloudModal}
+            onClose={() => setShowCloudModal(false)}
+            powerSupply={powerSupply}
+            wires={wires}
+            faults={faults}
+            components={components}
+            activeDTCs={circuitSolution.activeDTCs}
+            supplyCurrentDrawAmps={circuitSolution.supplyCurrentDrawAmps}
+            onLoadBenchSession={handleLoadBenchSession}
+          />
+        </Suspense>
+      )}
 
-      {/* 100% Offline Diagnostic Chatbot Modal */}
-      <OfflineAssistantModal
-        isOpen={showOfflineBot}
-        onClose={() => setShowOfflineBot(false)}
-        liveContext={{
-          powerSupply,
-          pins,
-          wires,
-          faults,
-          activeDTCs: circuitSolution.activeDTCs,
-          nodeVoltages: circuitSolution.nodeVoltages,
-          supplyCurrentDrawAmps: circuitSolution.supplyCurrentDrawAmps,
-          isSupplyCurrentTripped: circuitSolution.isSupplyCurrentTripped,
-          multimeter,
-          multimeterDisplay: circuitSolution.multimeterReading.display,
-          multimeterUnit: circuitSolution.multimeterReading.unit,
-          multimeterWarning: circuitSolution.multimeterReading.warningMessage,
-          selectedPinId,
-        }}
-        savedLogs={savedLogs}
-        savedSessions={savedSessions}
-        initialPrompt={offlineBotPrompt}
-        onClearInitialPrompt={() => setOfflineBotPrompt(null)}
-        onNavigateTab={(tab, pinId) => {
-          setActiveTab(tab);
-          if (pinId) {
-            setSelectedPinId(pinId);
-          }
-        }}
-      />
+      {/* 100% Offline Diagnostic Chatbot Modal (kept mounted only after first open so chat persists) */}
+      {hasOpenedOfflineBot && (
+        <Suspense fallback={null}>
+          <OfflineAssistantModal
+            isOpen={showOfflineBot}
+            onClose={() => setShowOfflineBot(false)}
+            liveContext={offlineBotLiveContext}
+            savedLogs={savedLogs}
+            savedSessions={savedSessions}
+            initialPrompt={offlineBotPrompt}
+            onClearInitialPrompt={() => setOfflineBotPrompt(null)}
+            onNavigateTab={(tab, pinId) => {
+              setActiveTab(tab);
+              if (pinId) {
+                setSelectedPinId(pinId);
+              }
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

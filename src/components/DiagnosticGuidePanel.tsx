@@ -27,6 +27,7 @@ import {
 type LabTab =
   | 'BENCH_LAB'
   | 'WIRING_DIAGRAM'
+  | 'THREE_D_TWIN'
   | 'ECU_PINOUT'
   | 'OSCILLOSCOPE'
   | 'PCB_SCANNER'

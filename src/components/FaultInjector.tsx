@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { EcuPin, FaultType, InjectedFault, DiagnosticTroubleCode } from '../types/ecu';
 import { AlertTriangle, ShieldCheck, Trash2, ZapOff, CheckCircle2, Flame, Wrench, Sparkles, Globe, Activity } from 'lucide-react';
+import { recordRenderCycle } from '../utils/perfMonitor';
 
 interface FaultInjectorProps {
   pins: EcuPin[];
@@ -14,7 +15,7 @@ interface FaultInjectorProps {
   onSearchDtc?: (dtcCode: string, description: string) => void;
 }
 
-export const FaultInjector: React.FC<FaultInjectorProps> = ({
+export const FaultInjector: React.FC<FaultInjectorProps> = React.memo(({
   pins,
   faults,
   activeDTCs,
@@ -25,6 +26,10 @@ export const FaultInjector: React.FC<FaultInjectorProps> = ({
   onSelectPin,
   onSearchDtc,
 }) => {
+  useEffect(() => {
+    recordRenderCycle('FaultInjector');
+  });
+
   const currentPin = pins.find(p => p.id === selectedPinId) || pins[0];
   const activeFaultForPin = faults.find(f => f.pinId === currentPin.id);
 
@@ -224,4 +229,4 @@ export const FaultInjector: React.FC<FaultInjectorProps> = ({
       </div>
     </div>
   );
-};
+});

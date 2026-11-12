@@ -8,7 +8,7 @@ export class MatrixSolver {
   private static readonly EPSILON = 1e-12;
 
   /**
-   * Solves the linear system A * x = b.
+   * Solves the linear system A * x = b without mutating the input arrays.
    * @param A Square matrix of size N x N (conductances and branch incidence)
    * @param b Right-hand side vector of size N (currents and voltage sources)
    * @returns Solution vector x of size N (node voltages and branch currents)
@@ -20,9 +20,22 @@ export class MatrixSolver {
       throw new Error(`Matrix dimension mismatch: A is ${A.length}x${A[0]?.length || 0}, b is ${n}`);
     }
 
-    // Create deep copies to avoid mutating input matrices
+    // Create deep copies to avoid mutating caller-owned input matrices
     const M: number[][] = Array.from({ length: n }, (_, i) => [...A[i]]);
     const rhs: number[] = [...b];
+
+    return this.solveInPlace(M, rhs);
+  }
+
+  /**
+   * Solves the linear system M * x = rhs in place, mutating M and rhs to avoid duplicate NxN allocations.
+   */
+  public static solveInPlace(M: number[][], rhs: number[]): number[] {
+    const n = rhs.length;
+    if (n === 0) return [];
+    if (M.length !== n) {
+      throw new Error(`Matrix dimension mismatch: A is ${M.length}x${M[0]?.length || 0}, b is ${n}`);
+    }
 
     // Forward Elimination with Partial Pivoting
     for (let k = 0; k < n; k++) {

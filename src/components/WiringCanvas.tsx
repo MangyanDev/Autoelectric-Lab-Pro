@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { EcuPin, WireConnection, BenchComponent, MultimeterState } from '../types/ecu';
 import {
   Scissors,
@@ -17,6 +17,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { playProbeTapSound } from '../utils/audioFeedback';
+import { recordRenderCycle } from '../utils/perfMonitor';
 
 interface AnimatedCoordsState {
   coords: { x: number; y: number } | null;
@@ -146,7 +147,7 @@ const AUTOMOTIVE_WIRE_COLORS = [
   { name: 'White (Auxiliary / Data)', hex: '#cbd5e1', category: 'aux' },
 ];
 
-export const WiringCanvas: React.FC<WiringCanvasProps> = ({
+export const WiringCanvas: React.FC<WiringCanvasProps> = React.memo(({
   pins,
   wires,
   components,
@@ -163,6 +164,10 @@ export const WiringCanvas: React.FC<WiringCanvasProps> = ({
   onOpenEcuPinouts,
   simulationSpeed = 1.0,
 }) => {
+  useEffect(() => {
+    recordRenderCycle('WiringCanvas');
+  });
+
   const [wireSourcePin, setWireSourcePin] = useState<{ id: string; label: string } | null>(null);
   const [hoveredWireId, setHoveredWireId] = useState<string | null>(null);
   const [activePinMenuId, setActivePinMenuId] = useState<string | null>(null);
@@ -191,32 +196,36 @@ export const WiringCanvas: React.FC<WiringCanvasProps> = ({
   const COMP_HEADER_HEIGHT = 38;
   const COMP_ROW_HEIGHT = 34; // 30px height + 4px gap
 
-  // Mathematical Coordinate Calculator
-  const getPinCoords = (pinId: string): { x: number; y: number } => {
-    // 1. ECU Pins
-    const ecuIndex = pins.findIndex(p => p.id === pinId);
-    if (ecuIndex !== -1) {
-      return {
+  const pinCoordsMap = useMemo(() => {
+    const map: Record<string, { x: number; y: number }> = {
+      'chassis-gnd': { x: ECU_BOX_X + ECU_BOX_WIDTH, y: 640 },
+      'bench-vbat': { x: ECU_BOX_X + ECU_BOX_WIDTH, y: 15 },
+    };
+
+    for (let i = 0; i < pins.length; i++) {
+      map[pins[i].id] = {
         x: ECU_BOX_X + ECU_BOX_WIDTH,
-        y: ECU_BOX_Y + ECU_HEADER_HEIGHT + ecuIndex * ECU_ROW_HEIGHT + 16,
+        y: ECU_BOX_Y + ECU_HEADER_HEIGHT + i * ECU_ROW_HEIGHT + 16,
       };
     }
 
-    // 2. Component Pins
     for (const comp of components) {
-      const pinIndex = comp.pins.findIndex(p => p.id === pinId);
-      if (pinIndex !== -1) {
-        return {
+      for (let i = 0; i < comp.pins.length; i++) {
+        map[comp.pins[i].id] = {
           x: comp.x,
-          y: comp.y + COMP_HEADER_HEIGHT + pinIndex * COMP_ROW_HEIGHT + 15,
+          y: comp.y + COMP_HEADER_HEIGHT + i * COMP_ROW_HEIGHT + 15,
         };
       }
     }
 
-    if (pinId === 'chassis-gnd') return { x: ECU_BOX_X + ECU_BOX_WIDTH, y: 640 };
-    if (pinId === 'bench-vbat') return { x: ECU_BOX_X + ECU_BOX_WIDTH, y: 15 };
+    return map;
+  }, [pins, components]);
 
-    return { x: 200, y: 200 };
+  const DEFAULT_PIN_COORD = { x: 200, y: 200 };
+
+  // Mathematical Coordinate Calculator (O(1) cached lookup)
+  const getPinCoords = (pinId: string): { x: number; y: number } => {
+    return pinCoordsMap[pinId] ?? DEFAULT_PIN_COORD;
   };
 
   const handlePinAction = (pinId: string, label: string) => {
@@ -1135,5 +1144,5 @@ export const WiringCanvas: React.FC<WiringCanvasProps> = ({
       )}
     </div>
   );
-};
+});
 

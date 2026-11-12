@@ -64,32 +64,45 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
   }
 
   useEffect(() => {
-    let animFrame: number;
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animFrame = 0;
     let simTime = 0;
+    let width = Math.max(1, Math.floor(container.clientWidth));
+    let height = Math.max(1, Math.floor(container.clientHeight));
+    let canHighBuf = new Float32Array(width);
+    let canLowBuf = new Float32Array(width);
 
-    const render = () => {
-      const canvas = canvasRef.current;
-      const container = containerRef.current;
-      if (!canvas || !container) return;
-
-      const dpr = window.devicePixelRatio || 1;
+    const syncCanvasSize = () => {
       const rect = container.getBoundingClientRect();
-      const targetWidth = Math.floor(rect.width);
-      const targetHeight = Math.floor(rect.height);
+      const targetWidth = Math.max(1, Math.floor(rect.width));
+      const targetHeight = Math.max(1, Math.floor(rect.height));
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const pixelW = Math.floor(targetWidth * dpr);
+      const pixelH = Math.floor(targetHeight * dpr);
 
-      if (canvas.width !== targetWidth * dpr || canvas.height !== targetHeight * dpr) {
-        canvas.width = targetWidth * dpr;
-        canvas.height = targetHeight * dpr;
+      width = targetWidth;
+      height = targetHeight;
+
+      if (canvas.width !== pixelW || canvas.height !== pixelH) {
+        canvas.width = pixelW;
+        canvas.height = pixelH;
       }
+      if (canHighBuf.length < width) {
+        canHighBuf = new Float32Array(width);
+        canLowBuf = new Float32Array(width);
+      }
+    };
 
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
+    const drawFrame = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       ctx.save();
-      ctx.scale(dpr, dpr);
-
-      const width = targetWidth;
-      const height = targetHeight;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       // Dark oscilloscope phosphor CRT screen background
       ctx.fillStyle = '#030807';
@@ -104,18 +117,16 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
       const stepX = width / numX;
       const stepY = height / numY;
 
+      ctx.beginPath();
       for (let x = 0; x <= width; x += stepX) {
-        ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, height);
-        ctx.stroke();
       }
       for (let y = 0; y <= height; y += stepY) {
-        ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(width, y);
-        ctx.stroke();
       }
+      ctx.stroke();
 
       // Center crosshair axis
       ctx.strokeStyle = '#143c34';
@@ -141,42 +152,46 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
       ctx.lineWidth = 2.5;
 
       if (activeSignal === 'CAN_BUS') {
+        const dt = 0.000008 / timeDiv;
+        const halfH = height / 2;
+        const scale = 45 * voltDiv;
+
+        // Compute both differential channels in one pass into reusable Float32Arrays
+        for (let x = 0; x < width; x++) {
+          const sig = SignalGenerator.getCanBusSignals(simTime + x * dt, hasCanFault);
+          canHighBuf[x] = halfH - (sig.canHigh - 2.5) * scale - 25;
+          canLowBuf[x] = halfH - (sig.canLow - 2.5) * scale + 25;
+        }
+
         // CH1 CAN_H Yellow
         ctx.strokeStyle = '#facc15';
         ctx.shadowColor = '#facc15';
-        ctx.shadowBlur = 6;
+        ctx.shadowBlur = 5;
         ctx.beginPath();
         for (let x = 0; x < width; x++) {
-          const tPoint = simTime + (x * 0.000008 / timeDiv);
-          const sig = SignalGenerator.getCanBusSignals(tPoint, hasCanFault);
-          const y = (height / 2) - ((sig.canHigh - 2.5) * 45 * voltDiv) - 25;
-          if (x === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
+          if (x === 0) ctx.moveTo(x, canHighBuf[x]);
+          else ctx.lineTo(x, canHighBuf[x]);
         }
         ctx.stroke();
 
         // CH2 CAN_L Cyan
         ctx.strokeStyle = '#06b6d4';
         ctx.shadowColor = '#06b6d4';
-        ctx.shadowBlur = 6;
+        ctx.shadowBlur = 5;
         ctx.beginPath();
         for (let x = 0; x < width; x++) {
-          const tPoint = simTime + (x * 0.000008 / timeDiv);
-          const sig = SignalGenerator.getCanBusSignals(tPoint, hasCanFault);
-          const y = (height / 2) - ((sig.canLow - 2.5) * 45 * voltDiv) + 25;
-          if (x === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
+          if (x === 0) ctx.moveTo(x, canLowBuf[x]);
+          else ctx.lineTo(x, canLowBuf[x]);
         }
         ctx.stroke();
       } else if (activeSignal === 'INJECTOR_PWM') {
         ctx.strokeStyle = '#38bdf8';
         ctx.shadowColor = '#38bdf8';
-        ctx.shadowBlur = 6;
+        ctx.shadowBlur = 5;
         ctx.beginPath();
         for (let x = 0; x < width; x++) {
           const tPoint = simTime + (x * 0.00015 / timeDiv);
           const v = SignalGenerator.getInjectorWaveform(tPoint, hasInjectorFault, 12.6);
-          // Scale 0V - 65V to screen
           const y = (height - 30) - (v * 3.2 * voltDiv);
           if (x === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
@@ -185,7 +200,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
       } else if (activeSignal === 'CRANK_CKP') {
         ctx.strokeStyle = '#4ade80';
         ctx.shadowColor = '#4ade80';
-        ctx.shadowBlur = 6;
+        ctx.shadowBlur = 5;
         ctx.beginPath();
         for (let x = 0; x < width; x++) {
           const tPoint = simTime + (x * 0.00008 / timeDiv);
@@ -198,7 +213,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
       } else if (activeSignal === 'O2_LAMBDA') {
         ctx.strokeStyle = '#f43f5e';
         ctx.shadowColor = '#f43f5e';
-        ctx.shadowBlur = 6;
+        ctx.shadowBlur = 5;
         ctx.beginPath();
         for (let x = 0; x < width; x++) {
           const tPoint = simTime + (x * 0.002 / timeDiv);
@@ -212,7 +227,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
         // TPS_DC analog level
         ctx.strokeStyle = '#fbbf24';
         ctx.shadowColor = '#fbbf24';
-        ctx.shadowBlur = 6;
+        ctx.shadowBlur = 5;
         ctx.beginPath();
         const y = (height - 40) - (2.4 * 35 * voltDiv);
         ctx.moveTo(0, y);
@@ -221,15 +236,50 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
       }
 
       ctx.restore();
-      animFrame = requestAnimationFrame(render);
     };
 
-    render();
+    const tick = () => {
+      drawFrame();
+      if (isPowerOn && isRunning && !document.hidden) {
+        animFrame = requestAnimationFrame(tick);
+      } else {
+        animFrame = 0;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (animFrame) {
+          cancelAnimationFrame(animFrame);
+          animFrame = 0;
+        }
+      } else if (isPowerOn && isRunning && !animFrame) {
+        animFrame = requestAnimationFrame(tick);
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+      syncCanvasSize();
+      drawFrame();
+    });
+    resizeObserver.observe(container);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    syncCanvasSize();
+    drawFrame();
+    if (isPowerOn && isRunning && !document.hidden) {
+      animFrame = requestAnimationFrame(tick);
+    }
 
     return () => {
-      cancelAnimationFrame(animFrame);
+      if (animFrame) cancelAnimationFrame(animFrame);
+      resizeObserver.disconnect();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      // Release GPU backing texture on unmount
+      canvas.width = 0;
+      canvas.height = 0;
     };
-  }, [isPowerOn, isRunning, activeSignal, hasCanFault, hasInjectorFault, timeDiv, voltDiv]);
+  }, [isPowerOn, isRunning, activeSignal, hasCanFault, hasInjectorFault, timeDiv, voltDiv, simulationSpeed]);
 
   return (
     <div className="hud-panel rounded-xl p-3.5 text-slate-100 flex flex-col gap-3">

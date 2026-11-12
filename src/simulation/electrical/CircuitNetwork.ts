@@ -240,10 +240,10 @@ export class CircuitNetwork {
       vSourceIdx++;
     }
 
-    // Solve the MNA system [A][x] = [b]
+    // Solve the MNA system [A][x] = [b] in place (A & b are fresh per-solve buffers)
     let x: number[];
     try {
-      x = MatrixSolver.solve(A, b);
+      x = MatrixSolver.solveInPlace(A, b);
     } catch {
       return {
         nodeVoltages: {},

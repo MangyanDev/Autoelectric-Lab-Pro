@@ -2251,6 +2251,8 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
               <img
                 src={activeBrand.imageSrc}
                 alt={`${activeBrand.modelName} Connector Face Socket`}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-contain select-none"
               />
 
@@ -2316,6 +2318,8 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
               <img
                 src={activeBrand.pcbImageSrc}
                 alt={`${activeBrand.modelName} Internal PCB Board Inspection`}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-contain select-none"
               />
 

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { PowerSupplyState } from '../types/ecu';
 import { Power, Zap, Sliders, AlertCircle, RotateCcw } from 'lucide-react';
+import { recordRenderCycle } from '../utils/perfMonitor';
 
 interface BenchPowerSupplyProps {
   powerSupply: PowerSupplyState;
@@ -9,12 +10,16 @@ interface BenchPowerSupplyProps {
   isTripped: boolean;
 }
 
-export const BenchPowerSupply: React.FC<BenchPowerSupplyProps> = ({
+export const BenchPowerSupply: React.FC<BenchPowerSupplyProps> = React.memo(({
   powerSupply,
   onChange,
   actualCurrentAmps,
   isTripped,
 }) => {
+  useEffect(() => {
+    recordRenderCycle('BenchPowerSupply');
+  });
+
   const handleVoltageChange = (val: number) => {
     const clamped = Math.max(0, Math.min(32.0, parseFloat(val.toFixed(2))));
     onChange({
@@ -269,4 +274,4 @@ export const BenchPowerSupply: React.FC<BenchPowerSupplyProps> = ({
       </button>
     </div>
   );
-};
+});

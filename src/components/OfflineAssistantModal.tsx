@@ -81,27 +81,31 @@ export const OfflineAssistantModal: React.FC<OfflineAssistantModalProps> = ({
     },
   ]);
 
+  const MAX_CHAT_MESSAGES = 60;
+
   useEffect(() => {
     if (isOpen && initialPrompt && initialPrompt.trim()) {
       const trimmed = initialPrompt.trim();
       const reply = botEngine.ask(trimmed, liveContext);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `u_${Date.now()}`,
-          role: 'user',
-          text: trimmed,
-          timestamp: Date.now(),
-        },
-        {
-          id: `b_${Date.now() + 1}`,
-          role: 'assistant',
-          text: reply.answer,
-          citations: reply.citations,
-          suggestedPrompts: reply.suggestedPrompts,
-          timestamp: Date.now(),
-        },
-      ]);
+      setMessages((prev) =>
+        [
+          ...prev,
+          {
+            id: `u_${Date.now()}`,
+            role: 'user' as const,
+            text: trimmed,
+            timestamp: Date.now(),
+          },
+          {
+            id: `b_${Date.now() + 1}`,
+            role: 'assistant' as const,
+            text: reply.answer,
+            citations: reply.citations,
+            suggestedPrompts: reply.suggestedPrompts,
+            timestamp: Date.now(),
+          },
+        ].slice(-MAX_CHAT_MESSAGES)
+      );
       onClearInitialPrompt?.();
     }
   }, [isOpen, initialPrompt, botEngine, liveContext, onClearInitialPrompt]);
@@ -136,7 +140,7 @@ export const OfflineAssistantModal: React.FC<OfflineAssistantModalProps> = ({
       timestamp: Date.now(),
     };
 
-    setMessages((prev) => [...prev, userMsg, botMsg]);
+    setMessages((prev) => [...prev, userMsg, botMsg].slice(-MAX_CHAT_MESSAGES));
     setInput('');
   };
 

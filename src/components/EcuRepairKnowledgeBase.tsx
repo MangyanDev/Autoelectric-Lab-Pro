@@ -729,6 +729,7 @@ export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
                         alt={img.caption}
                         className="w-full h-full object-contain hover:scale-105 transition-transform duration-200"
                         loading="lazy"
+                        decoding="async"
                       />
                     </div>
                     <p className="text-[11px] text-cyan-300 font-sans leading-relaxed">
