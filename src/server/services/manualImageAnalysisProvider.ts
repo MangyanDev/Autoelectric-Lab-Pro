@@ -16,6 +16,7 @@ export function createManualImageAnalysisProvider(): ImageAnalysisProvider {
         components: [],
         terminals: [],
         nets: [],
+        hotspots: [],
         warnings: ["AI analysis unavailable. Manual review required."],
         model: "manual",
         provider: "manual"

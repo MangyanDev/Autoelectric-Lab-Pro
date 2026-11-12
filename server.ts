@@ -20,7 +20,7 @@ async function startServer() {
   // API Routes
   app.post('/api/autoelectric/analyze-schematic', async (req, res) => {
     try {
-      const { imageBase64, documentName, documentType, regionBox } = req.body;
+      const { imageBase64, mimeType, documentName, documentType, regionBox } = req.body;
       if (!imageBase64 || typeof imageBase64 !== 'string') {
         return res.status(400).json({ error: 'Missing or invalid imageBase64 payload' });
       }
@@ -40,6 +40,7 @@ async function startServer() {
       const provider = getImageAnalysisProvider();
       const result = await provider.analyzeImage({
         imageBase64,
+        mimeType: typeof mimeType === 'string' ? mimeType : 'image/jpeg',
         documentName,
         documentType,
         regionBox,
@@ -103,35 +104,72 @@ ${customPrompt ? `Additional Field Observations: ${customPrompt}` : ''}
 
 Execute Google Search Grounding to retrieve up-to-date OEM technical service bulletins, factory service manual wiring pinouts, verified fix patterns, and technician bench experiences. Provide an in-depth, authoritative report.`;
 
+      // Ordered pool of free-tier AI models supporting text generation and Search Grounding
+      // Primary: gemini-4-hydrogen (recommended for search grounding)
+      // Tier 2: gemini-3.1-flash-lite (high throughput, light token consumption)
+      // Tier 3: gemini-3.5-transcribe fallback / gemini-4-hydrogen retry
       const candidateModels = [
         process.env.GEMINI_SEARCH_MODEL || 'gemini-4-hydrogen',
-        'gemini-3.8-flash',
-      ];
+        'gemini-3.1-flash-lite',
+      ].filter((m, idx, arr) => arr.indexOf(m) === idx);
 
       let response = null;
       let usedModel = candidateModels[0];
-      let lastError: unknown = null;
+      const attemptedModels: string[] = [];
+      const modelErrors: Record<string, string> = {};
 
-      for (const m of candidateModels) {
+      for (let i = 0; i < candidateModels.length; i++) {
+        const currentModel = candidateModels[i];
+        usedModel = currentModel;
+        attemptedModels.push(currentModel);
+
         try {
-          usedModel = m;
+          // Note: gemini-4-hydrogen and gemini-3.1-flash-lite support googleSearch tool
           response = await ai.models.generateContent({
-            model: m,
+            model: currentModel,
             contents: prompt,
             config: {
               systemInstruction,
               tools: [{ googleSearch: {} }],
             },
           });
-          if (response) break;
-        } catch (err) {
-          lastError = err;
-          console.warn(`Model ${m} search failed, trying next candidate...`);
+          if (response) {
+            if (i > 0) {
+              console.log(`[Auto-Reroute] Successfully recovered on candidate ${currentModel} after prior model quota exhaustion`);
+            }
+            break;
+          }
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          modelErrors[currentModel] = errMsg;
+          const isQuota =
+            errMsg.includes('429') ||
+            errMsg.includes('RESOURCE_EXHAUSTED') ||
+            errMsg.includes('quota') ||
+            errMsg.includes('rate limit');
+          console.warn(
+            `[Auto-Reroute] Model ${currentModel} failed ${
+              isQuota ? '(Quota / 429 Resource Exhausted)' : ''
+            }: ${errMsg}. ${
+              i + 1 < candidateModels.length
+                ? `Automatically switching to next free model: ${candidateModels[i + 1]}...`
+                : 'All free model candidates exhausted.'
+            }`
+          );
         }
       }
 
       if (!response) {
-        throw lastError || new Error('All model candidates failed to retrieve search results');
+        const allQuotas = Object.values(modelErrors).some(
+          (m) => m.includes('429') || m.includes('RESOURCE_EXHAUSTED') || m.includes('quota')
+        );
+        return res.status(429).json({
+          error: allQuotas
+            ? 'Free AI model pool quota exhausted across all candidates. Automatic failover attempted all free models. Please wait 30-60 seconds or configure a billing-enabled key in Settings > Secrets.'
+            : 'All free AI search models failed.',
+          details: JSON.stringify(modelErrors),
+          attemptedModels,
+        });
       }
 
       const candidate = response.candidates?.[0];
@@ -159,12 +197,16 @@ Execute Google Search Grounding to retrieve up-to-date OEM technical service bul
         })
         .filter((s): s is { title: string; uri: string; domain: string } => s !== null);
 
+      const reroutedFrom = attemptedModels.length > 1 ? attemptedModels[0] : undefined;
+
       res.json({
         status: 'SUCCESS',
         answer: response.text || 'No diagnostic response generated.',
         sources: webSources,
         searchQueries,
         model: usedModel,
+        attemptedModels,
+        reroutedFrom,
         timestamp: new Date().toISOString(),
       });
     } catch (e: unknown) {

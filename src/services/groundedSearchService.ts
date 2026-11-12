@@ -10,6 +10,8 @@ export interface GroundedSearchResult {
   sources: GroundedSearchSource[];
   searchQueries: string[];
   model: string;
+  attemptedModels?: string[];
+  reroutedFrom?: string;
   timestamp: string;
   error?: string;
 }
@@ -64,6 +66,8 @@ export async function performGroundedSearch(
       sources: data.sources || [],
       searchQueries: data.searchQueries || [],
       model: data.model || 'gemini-4-hydrogen',
+      attemptedModels: data.attemptedModels || [],
+      reroutedFrom: data.reroutedFrom || undefined,
       timestamp: data.timestamp || new Date().toISOString(),
     };
   } catch (err: unknown) {

@@ -19,6 +19,11 @@ import {
   WireConnection,
 } from '../types/ecu';
 import { GroundedSearchSource } from './groundedSearchService';
+import {
+  ImageAnalysisComponent,
+  ImageAnalysisHotspot,
+  ImageAnalysisNet,
+} from '../server/services/imageAnalysisTypes';
 
 export enum OperationType {
   CREATE = 'create',
@@ -97,6 +102,20 @@ export interface SavedDiagnosticLog {
   sourceType: 'GROUNDED_TSB' | 'BENCH_SNAPSHOT' | 'PINOUT_NOTE';
   summary: string;
   sources: GroundedSearchSource[];
+  createdAt?: Timestamp | null;
+  updatedAt?: Timestamp | null;
+}
+
+export interface SavedPcbScan {
+  id: string;
+  ownerId: string;
+  title: string;
+  boardType: string;
+  analysisSummary: string;
+  model: string;
+  components: ImageAnalysisComponent[];
+  nets: ImageAnalysisNet[];
+  hotspots: ImageAnalysisHotspot[];
   createdAt?: Timestamp | null;
   updatedAt?: Timestamp | null;
 }
@@ -349,5 +368,141 @@ export async function fetchBenchSessionCount(uid: string): Promise<number> {
     return snap.size;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
+/**
+ * Save a mapped ECU PCB layout (components, copper nets, and hotspots — no raw binary images).
+ */
+export async function savePcbScan(
+  uid: string,
+  payload: {
+    title: string;
+    boardType: string;
+    analysisSummary: string;
+    model: string;
+    components: ImageAnalysisComponent[];
+    nets: ImageAnalysisNet[];
+    hotspots: ImageAnalysisHotspot[];
+  }
+): Promise<string> {
+  const scanId = makeSafeId('pcb');
+  const path = `users/${uid}/pcbScans/${scanId}`;
+
+  const sanitizedComponents = payload.components.slice(0, 60).map((c) => ({
+    refDes: String(c.refDes).slice(0, 32),
+    category: String(c.category).slice(0, 64),
+    marking: String(c.marking || '').slice(0, 64),
+    decodedValue: String(c.decodedValue || '').slice(0, 80),
+    packageType: String(c.packageType || '').slice(0, 64),
+    bbox: {
+      ymin: Math.round(Number(c.bbox.ymin) || 0),
+      xmin: Math.round(Number(c.bbox.xmin) || 0),
+      ymax: Math.round(Number(c.bbox.ymax) || 0),
+      xmax: Math.round(Number(c.bbox.xmax) || 0),
+    },
+    confidenceScore: Number(c.confidenceScore) || 0.7,
+    verificationStatus: c.verificationStatus || 'UNVERIFIED',
+    circuitFunction: String(c.circuitFunction || '').slice(0, 240),
+    terminalIds: (c.terminalIds || []).slice(0, 24).map((t) => String(t).slice(0, 32)),
+    notes: String(c.notes || '').slice(0, 400),
+    operatingVoltageRange: String(c.operatingVoltageRange || '').slice(0, 64),
+    maxCurrentRating: String(c.maxCurrentRating || '').slice(0, 64),
+    datasheetSummary: String(c.datasheetSummary || '').slice(0, 400),
+    pinSpecs: (c.pinSpecs || []).slice(0, 24).map((p, idx) => ({
+      pinNumber: Number(p.pinNumber) || idx + 1,
+      pinName: String(p.pinName || '').slice(0, 40),
+      category: p.category || 'signal_in',
+      nominalVoltage: Number(p.nominalVoltage) || 0,
+      connectedNetId: String(p.connectedNetId || 'NET_UNASSIGNED').slice(0, 64),
+      notes: String(p.notes || '').slice(0, 200),
+    })),
+    source: c.source || 'AI',
+  }));
+
+  const sanitizedNets = payload.nets.slice(0, 40).map((n) => ({
+    name: String(n.name).slice(0, 64),
+    signalType: String(n.signalType || 'SIGNAL').slice(0, 48),
+    connectedComponentRefs: (n.connectedComponentRefs || []).slice(0, 32).map((r) => String(r).slice(0, 32)),
+    connectedTerminalIds: (n.connectedTerminalIds || []).slice(0, 32).map((t) => String(t).slice(0, 32)),
+    tracePoints: (n.tracePoints || []).slice(0, 24).map((pt) => ({
+      x: Math.round(Number(pt.x) || 0),
+      y: Math.round(Number(pt.y) || 0),
+    })),
+    confidenceScore: Number(n.confidenceScore) || 0.7,
+    verificationStatus: n.verificationStatus || 'UNVERIFIED',
+    isComplete: Boolean(n.isComplete),
+  }));
+
+  const sanitizedHotspots = (payload.hotspots || []).slice(0, 30).map((h) => ({
+    id: String(h.id).slice(0, 64),
+    label: String(h.label).slice(0, 120),
+    severity: h.severity || 'WARNING',
+    bbox: {
+      ymin: Math.round(Number(h.bbox.ymin) || 0),
+      xmin: Math.round(Number(h.bbox.xmin) || 0),
+      ymax: Math.round(Number(h.bbox.ymax) || 0),
+      xmax: Math.round(Number(h.bbox.xmax) || 0),
+    },
+    suspectComponentRef: String(h.suspectComponentRef || '').slice(0, 32),
+    notes: String(h.notes || '').slice(0, 300),
+    source: h.source === 'AI' ? 'AI' : 'LOCAL_CV',
+  }));
+
+  try {
+    await setDoc(doc(db, 'users', uid, 'pcbScans', scanId), {
+      id: scanId,
+      ownerId: uid,
+      title: payload.title.trim().slice(0, 160) || 'Mapped ECU PCB Scan',
+      boardType: payload.boardType.trim().slice(0, 120) || 'Automotive ECU PCB',
+      analysisSummary: payload.analysisSummary.trim().slice(0, 4000) || 'Mapped PCB layout',
+      model: payload.model.trim().slice(0, 80) || 'gemini-4-hydrogen',
+      components: sanitizedComponents,
+      nets: sanitizedNets,
+      hotspots: sanitizedHotspots,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return scanId;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export function subscribePcbScans(
+  uid: string,
+  onData: (scans: SavedPcbScan[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const path = `users/${uid}/pcbScans`;
+  const q = query(
+    collection(db, 'users', uid, 'pcbScans'),
+    where('ownerId', '==', uid)
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items: SavedPcbScan[] = snapshot.docs
+        .map((d) => d.data() as SavedPcbScan)
+        .sort((a, b) => (b.updatedAt?.toMillis?.() ?? 0) - (a.updatedAt?.toMillis?.() ?? 0));
+      onData(items);
+    },
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, path);
+      } catch (e) {
+        if (onError && e instanceof Error) onError(e);
+      }
+    }
+  );
+}
+
+export async function deletePcbScan(uid: string, scanId: string): Promise<void> {
+  const path = `users/${uid}/pcbScans/${scanId}`;
+  try {
+    await deleteDoc(doc(db, 'users', uid, 'pcbScans', scanId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }

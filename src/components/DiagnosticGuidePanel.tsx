@@ -8,13 +8,17 @@ import {
   ChevronRight,
   Circle,
   Cpu,
+  FileText,
   Gauge,
   Link2,
   PanelRightClose,
+  Play,
   Scissors,
   ShieldCheck,
   Wrench,
 } from 'lucide-react';
+import { DiagnosticReportModal } from './DiagnosticReportModal';
+import { BatchPinDiagnosticModal } from './BatchPinDiagnosticModal';
 import {
   DiagnosticTroubleCode,
   EcuPin,
@@ -53,7 +57,7 @@ interface DiagnosticGuidePanelProps {
   };
   selectedPinId: string | null;
   onSelectPin: (pinId: string) => void;
-  onNavigateTab: (tab: LabTab) => void;
+  onNavigateTab: (tab: LabTab, pinId?: string) => void;
   onOpenOfflineBot: (prompt?: string) => void;
 }
 
@@ -88,6 +92,8 @@ export const DiagnosticGuidePanel: React.FC<DiagnosticGuidePanelProps> = ({
   onOpenOfflineBot,
 }) => {
   const [selectedStepId, setSelectedStepId] = useState<number | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showBatchModal, setShowBatchModal] = useState(false);
 
   const cutWires = useMemo(() => wires.filter((w) => w.isCut), [wires]);
   const selectedPin = useMemo(
@@ -411,7 +417,7 @@ export const DiagnosticGuidePanel: React.FC<DiagnosticGuidePanelProps> = ({
         </div>
       </div>
 
-      {/* Live Snapshot Strip + Offline Bot Bridge */}
+      {/* Live Snapshot Strip + Batch Run & PDF Report Buttons */}
       <div className="flex flex-col gap-2 pt-2 border-t border-cyan-500/20">
         <div className="grid grid-cols-3 gap-1.5 text-[10px] font-mono tabular-nums">
           <div className="hud-well rounded-lg px-2 py-1.5">
@@ -432,29 +438,79 @@ export const DiagnosticGuidePanel: React.FC<DiagnosticGuidePanelProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-2">
           <button
             type="button"
-            onClick={() => onOpenOfflineBot('Diagnose my current bench')}
-            className="py-2 px-2.5 rounded-lg bg-amber-950/70 hover:bg-amber-900/80 border border-amber-500/60 text-amber-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition whitespace-nowrap"
+            onClick={() => setShowBatchModal(true)}
+            className="w-full py-2 px-2.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/60 text-emerald-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition whitespace-nowrap shadow-sm"
+            title="Automatically sequence through all standard ECU pin checks and flag voltage threshold deviations"
           >
-            <Bot className="w-3.5 h-3.5 text-amber-400" />
-            <span>Ask Offline Bot</span>
+            <Play className="w-3.5 h-3.5 text-emerald-400 fill-current" />
+            <span>Run Batch Pin Diagnostics</span>
           </button>
 
           <button
             type="button"
-            onClick={() => {
-              const nextId = activeStep.id >= 5 ? 1 : activeStep.id + 1;
-              setSelectedStepId(nextId);
-            }}
-            className="py-2 px-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-[11px] flex items-center justify-center gap-1 transition whitespace-nowrap"
+            onClick={() => setShowReportModal(true)}
+            className="w-full py-2 px-2.5 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/60 text-cyan-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition whitespace-nowrap shadow-sm"
+            title="Compile circuit state, detected faults, and active readings into a visual PDF report preview"
           >
-            <span>Next Step</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <FileText className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Export Diagnostic PDF Report</span>
           </button>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onOpenOfflineBot('Diagnose my current bench')}
+              className="py-2 px-2.5 rounded-lg bg-amber-950/70 hover:bg-amber-900/80 border border-amber-500/60 text-amber-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition whitespace-nowrap"
+            >
+              <Bot className="w-3.5 h-3.5 text-amber-400" />
+              <span>Ask Offline Bot</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const nextId = activeStep.id >= 5 ? 1 : activeStep.id + 1;
+                setSelectedStepId(nextId);
+              }}
+              className="py-2 px-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-[11px] flex items-center justify-center gap-1 transition whitespace-nowrap"
+            >
+              <span>Next Step</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Batch Pin Diagnostic Modal */}
+      <BatchPinDiagnosticModal
+        isOpen={showBatchModal}
+        onClose={() => setShowBatchModal(false)}
+        pins={pins}
+        nodeVoltages={nodeVoltages}
+        powerSupply={powerSupply}
+        onSelectPin={onSelectPin}
+        onNavigateTab={onNavigateTab}
+      />
+
+      {/* Diagnostic PDF Report Modal */}
+      <DiagnosticReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        powerSupply={powerSupply}
+        pins={pins}
+        wires={wires}
+        faults={faults}
+        activeDTCs={activeDTCs}
+        nodeVoltages={nodeVoltages}
+        supplyCurrentDrawAmps={supplyCurrentDrawAmps}
+        isSupplyCurrentTripped={isSupplyCurrentTripped}
+        multimeter={multimeter}
+        multimeterReading={multimeterReading}
+        selectedPinId={selectedPinId}
+      />
     </aside>
   );
 };

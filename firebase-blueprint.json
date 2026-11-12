@@ -182,6 +182,78 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "PcbScan": {
+      "title": "PcbScan",
+      "description": "Saved mapped ECU PCB metadata, component bounding boxes, copper trace nets, and fault hotspots (image binary omitted to stay strictly under 1MB).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "boardType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "analysisSummary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "components": {
+          "type": "array",
+          "description": "Normalized 0..1000 PCB component boxes and pinouts (max 60)."
+        },
+        "nets": {
+          "type": "array",
+          "description": "Normalized 0..1000 copper trace nets (max 40)."
+        },
+        "hotspots": {
+          "type": "array",
+          "description": "Normalized 0..1000 physical fault hotspots (max 30)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "title",
+        "boardType",
+        "analysisSummary",
+        "model",
+        "components",
+        "nets",
+        "hotspots",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -202,6 +274,12 @@
         "$ref": "#/entities/DiagnosticLog"
       },
       "description": "Saved diagnostic logs and grounded TSB/pinout bookmarks belonging to the authenticated user."
+    },
+    "/users/{userId}/pcbScans/{scanId}": {
+      "schema": {
+        "$ref": "#/entities/PcbScan"
+      },
+      "description": "Saved mapped ECU PCB overlays, nets, and fault hotspots belonging to the authenticated user."
     }
   }
 }

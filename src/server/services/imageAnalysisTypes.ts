@@ -1,3 +1,29 @@
+export interface PcbNormalizedBox {
+  ymin: number; // 0 - 1000 normalized top
+  xmin: number; // 0 - 1000 normalized left
+  ymax: number; // 0 - 1000 normalized bottom
+  xmax: number; // 0 - 1000 normalized right
+}
+
+export interface ImageAnalysisPinSpec {
+  pinNumber: number;
+  pinName: string;
+  category: 'power' | 'ground' | 'signal_in' | 'driver_out' | 'bus';
+  nominalVoltage: number;
+  connectedNetId: string;
+  notes: string;
+}
+
+export interface ImageAnalysisHotspot {
+  id: string;
+  label: string;
+  severity: 'CRITICAL' | 'WARNING' | 'INFO';
+  bbox: PcbNormalizedBox;
+  suspectComponentRef?: string;
+  notes: string;
+  source: 'AI' | 'LOCAL_CV';
+}
+
 export interface ImageAnalysisResult {
   documentType: string;
   confidenceScore: number;
@@ -6,6 +32,7 @@ export interface ImageAnalysisResult {
   components: ImageAnalysisComponent[];
   terminals: ImageAnalysisTerminal[];
   nets: ImageAnalysisNet[];
+  hotspots?: ImageAnalysisHotspot[];
   warnings: string[];
   model: string;
   provider: string;
@@ -17,19 +44,24 @@ export interface ImageAnalysisComponent {
   marking: string;
   decodedValue: string;
   packageType: string;
-  bbox: { ymin: number; xmin: number; ymax: number; xmax: number; };
+  bbox: PcbNormalizedBox;
   confidenceScore: number;
   verificationStatus: "VERIFIED" | "CROSS_REFERENCED" | "UNVERIFIED" | "UNKNOWN";
   circuitFunction: string;
   terminalIds: string[];
   notes?: string;
+  operatingVoltageRange?: string;
+  maxCurrentRating?: string;
+  datasheetSummary?: string;
+  pinSpecs?: ImageAnalysisPinSpec[];
+  source?: 'AI' | 'LOCAL_CV' | 'MANUAL';
 }
 
 export interface ImageAnalysisTerminal {
   id: string;
   componentRefDes: string;
   terminalName: string;
-  bbox: { ymin: number; xmin: number; ymax: number; xmax: number; };
+  bbox: PcbNormalizedBox;
   confidenceScore: number;
 }
 
@@ -48,6 +80,7 @@ export interface ImageAnalysisNet {
 export interface ImageAnalysisProvider {
   analyzeImage(input: {
     imageBase64: string;
+    mimeType?: string;
     documentName: string;
     documentType: string;
     regionBox?: {

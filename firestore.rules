@@ -100,6 +100,31 @@ service cloud.firestore {
         data.updatedAt is timestamp;
     }
 
+    function isValidPcbScan(data, userId, scanId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'title', 'boardType', 'analysisSummary',
+          'model', 'components', 'nets', 'hotspots', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'ownerId', 'title', 'boardType', 'analysisSummary',
+          'model', 'components', 'nets', 'hotspots', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) && data.id == scanId &&
+        isValidId(data.ownerId) && data.ownerId == userId && data.ownerId == request.auth.uid &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+        data.boardType is string && data.boardType.size() >= 1 && data.boardType.size() <= 120 &&
+        data.analysisSummary is string && data.analysisSummary.size() >= 1 && data.analysisSummary.size() <= 4000 &&
+        data.model is string && data.model.size() >= 1 && data.model.size() <= 80 &&
+        data.components is list && data.components.size() <= 60 &&
+        (data.components.size() == 0 || data.components[0] is map) &&
+        data.nets is list && data.nets.size() <= 40 &&
+        (data.nets.size() == 0 || data.nets[0] is map) &&
+        data.hotspots is list && data.hotspots.size() <= 30 &&
+        (data.hotspots.size() == 0 || data.hotspots[0] is map) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
     // Users private profile (PII isolated strictly to owner)
     match /users/{userId} {
       allow get: if isValidId(userId) && isOwner(userId);
@@ -167,6 +192,31 @@ service cloud.firestore {
             'title', 'dtcCode', 'ecuModel', 'summary', 'sources', 'updatedAt'
           ]);
         allow delete: if isValidId(userId) && isValidId(logId) && isVerified() && isOwner(userId);
+      }
+
+      // Saved Mapped PCB Scans
+      match /pcbScans/{scanId} {
+        allow get: if isValidId(userId) && isValidId(scanId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(scanId) &&
+          isVerified() &&
+          isOwner(userId) &&
+          isValidPcbScan(incoming(), userId, scanId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(scanId) &&
+          isVerified() &&
+          isOwner(userId) &&
+          isValidPcbScan(incoming(), userId, scanId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'boardType', 'analysisSummary', 'model',
+            'components', 'nets', 'hotspots', 'updatedAt'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(scanId) && isVerified() && isOwner(userId);
       }
     }
   }

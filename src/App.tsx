@@ -745,7 +745,15 @@ export default function App() {
         {activeTab === 'PCB_SCANNER' && (
           <div className="flex-1 flex overflow-hidden">
             <Suspense fallback={<div className="flex-1 flex items-center justify-center text-xs font-mono text-cyan-300">Loading PCB Scanner...</div>}>
-              <SchematicPcbScanner />
+              <SchematicPcbScanner
+                nodeVoltages={circuitSolution.nodeVoltages}
+                supplyCurrentDrawAmps={circuitSolution.supplyCurrentDrawAmps}
+                powerSupply={powerSupply}
+                faults={faults}
+                onOpenGroundedSearch={handleOpenGroundedSearch}
+                onOpenOfflineBot={handleOpenOfflineBot}
+                onOpenCloudModal={() => setShowCloudModal(true)}
+              />
             </Suspense>
           </div>
         )}
@@ -885,6 +893,11 @@ export default function App() {
             savedSessions={savedSessions}
             initialPrompt={offlineBotPrompt}
             onClearInitialPrompt={() => setOfflineBotPrompt(null)}
+            pins={pins}
+            onSetVoltage={(volts) => setPowerSupply((prev) => ({ ...prev, voltageSetting: volts }))}
+            onResetLab={handleResetLab}
+            onAttachProbeToPin={(pinId, label) => handleAttachProbe('red', pinId, label)}
+            onSetPowerSupplyOutput={(enabled) => setPowerSupply((prev) => ({ ...prev, isOutputEnabled: enabled }))}
             onNavigateTab={(tab, pinId) => {
               setActiveTab(tab);
               if (pinId) {

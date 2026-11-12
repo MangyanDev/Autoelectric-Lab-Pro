@@ -172,11 +172,11 @@ export const GroundedSearchPanel: React.FC<GroundedSearchPanelProps> = ({
               </span>
               <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-blue-950/80 border border-blue-600 text-blue-300 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-blue-400" />
-                Gemini 4 Hydrogen + Search Tool
+                Auto Re-route AI (Hydrogen ⇄ Flash-Lite)
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-sans mt-0.5">
-              Live retrieval of factory service bulletins, OEM pinouts, verified failure patterns & real-world repair data
+              Live retrieval of factory service bulletins & OEM pinouts with automatic zero-downtime quota re-routing across free models
             </p>
           </div>
         </div>
@@ -334,8 +334,14 @@ export const GroundedSearchPanel: React.FC<GroundedSearchPanelProps> = ({
           {/* Grounding Metadata Pill Bar */}
           <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-[10px]">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-slate-400">GROUNDING ENGINE:</span>
+              <span className="text-slate-400">ACTIVE MODEL:</span>
               <span className="text-cyan-400 font-bold">{result.model}</span>
+              {result.reroutedFrom && (
+                <span className="bg-amber-950/80 border border-amber-600/70 text-amber-300 px-2 py-0.5 rounded font-bold flex items-center gap-1">
+                  <RotateCcw className="w-3 h-3 text-amber-400" />
+                  Auto-Rerouted from {result.reroutedFrom} (Quota Exhausted)
+                </span>
+              )}
               <span className="text-slate-700">|</span>
               <span className="text-slate-400">SEARCH SOURCES:</span>
               <span className="text-emerald-400 font-bold">{result.sources.length} Verified Web Sources</span>
