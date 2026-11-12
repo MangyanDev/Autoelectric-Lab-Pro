@@ -1,0 +1,173 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Helpers
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'email', 'displayName', 'createdAt', 'updatedAt']) &&
+        isValidId(data.uid) &&
+        data.uid == userId &&
+        data.uid == request.auth.uid &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+        (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidBenchSession(data, userId, sessionId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'title', 'ecuProfileLabel',
+          'powerSupply', 'wires', 'faults', 'componentStates',
+          'activeDtcs', 'supplyCurrentDrawAmps', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'ownerId', 'title', 'notes', 'ecuProfileLabel',
+          'powerSupply', 'wires', 'faults', 'componentStates',
+          'activeDtcs', 'supplyCurrentDrawAmps', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) && data.id == sessionId &&
+        isValidId(data.ownerId) && data.ownerId == userId && data.ownerId == request.auth.uid &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+        data.ecuProfileLabel is string && data.ecuProfileLabel.size() >= 1 && data.ecuProfileLabel.size() <= 120 &&
+        data.powerSupply is map &&
+        data.powerSupply.keys().hasAll(['voltageSetting', 'currentLimit', 'isOutputEnabled', 'preset']) &&
+        data.powerSupply.keys().hasOnly(['voltageSetting', 'currentLimit', 'isOutputEnabled', 'preset']) &&
+        data.powerSupply.voltageSetting is number &&
+        data.powerSupply.currentLimit is number &&
+        data.powerSupply.isOutputEnabled is bool &&
+        data.powerSupply.preset is string && data.powerSupply.preset.size() >= 1 && data.powerSupply.preset.size() <= 32 &&
+        data.wires is list && data.wires.size() <= 50 &&
+        (data.wires.size() == 0 || data.wires[0] is map) &&
+        data.faults is list && data.faults.size() <= 20 &&
+        (data.faults.size() == 0 || data.faults[0] is map) &&
+        data.componentStates is map &&
+        data.activeDtcs is list && data.activeDtcs.size() <= 20 &&
+        (data.activeDtcs.size() == 0 || (data.activeDtcs[0] is string && data.activeDtcs[0].size() <= 32)) &&
+        data.supplyCurrentDrawAmps is number &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDiagnosticLog(data, userId, logId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'title', 'sourceType', 'summary', 'sources', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'ownerId', 'title', 'dtcCode', 'ecuModel', 'sourceType', 'summary', 'sources', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) && data.id == logId &&
+        isValidId(data.ownerId) && data.ownerId == userId && data.ownerId == request.auth.uid &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+        (!('dtcCode' in data) || (data.dtcCode is string && data.dtcCode.size() <= 32)) &&
+        (!('ecuModel' in data) || (data.ecuModel is string && data.ecuModel.size() <= 120)) &&
+        data.sourceType in ['GROUNDED_TSB', 'BENCH_SNAPSHOT', 'PINOUT_NOTE'] &&
+        data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 12000 &&
+        data.sources is list && data.sources.size() <= 20 &&
+        (data.sources.size() == 0 || data.sources[0] is map) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Users private profile (PII isolated strictly to owner)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId) &&
+        isVerified() &&
+        isOwner(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(userId) &&
+        isVerified() &&
+        isOwner(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'updatedAt']);
+      allow delete: if false;
+
+      // Saved Bench Sessions
+      match /benchSessions/{sessionId} {
+        allow get: if isValidId(userId) && isValidId(sessionId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(sessionId) &&
+          isVerified() &&
+          isOwner(userId) &&
+          isValidBenchSession(incoming(), userId, sessionId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(sessionId) &&
+          isVerified() &&
+          isOwner(userId) &&
+          isValidBenchSession(incoming(), userId, sessionId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'notes', 'ecuProfileLabel', 'powerSupply', 'wires',
+            'faults', 'componentStates', 'activeDtcs', 'supplyCurrentDrawAmps', 'updatedAt'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(sessionId) && isVerified() && isOwner(userId);
+      }
+
+      // Saved Diagnostic Logs & Grounded TSB Bookmarks
+      match /diagnosticLogs/{logId} {
+        allow get: if isValidId(userId) && isValidId(logId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(logId) &&
+          isVerified() &&
+          isOwner(userId) &&
+          isValidDiagnosticLog(incoming(), userId, logId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(logId) &&
+          isVerified() &&
+          isOwner(userId) &&
+          isValidDiagnosticLog(incoming(), userId, logId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'dtcCode', 'ecuModel', 'summary', 'sources', 'updatedAt'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(logId) && isVerified() && isOwner(userId);
+      }
+    }
+  }
+}

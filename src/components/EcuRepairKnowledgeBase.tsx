@@ -17,6 +17,9 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { GroundedSearchPanel } from './GroundedSearchPanel';
+import { DtcFrequencyWidget } from './DtcFrequencyWidget';
+import { SavedBenchSession, SavedDiagnosticLog } from '../services/benchStorageService';
+import { DiagnosticTroubleCode } from '../types/ecu';
 
 export interface RepairArticle {
   id: string;
@@ -32,7 +35,7 @@ export interface RepairArticle {
   repairSteps: { stepNum: number; action: string; specification: string }[];
 }
 
-const REPAIR_KNOWLEDGE_BASE: RepairArticle[] = [
+export const REPAIR_KNOWLEDGE_BASE: RepairArticle[] = [
   // 1. Nissan Hitachi MEC11-251 / MEC22-251 Bench Testing & K-Line Diagnostic Guide
   {
     id: 'art-nissan-mec11-bench',
@@ -443,7 +446,19 @@ const REPAIR_KNOWLEDGE_BASE: RepairArticle[] = [
   },
 ];
 
-export const EcuRepairKnowledgeBase: React.FC = () => {
+interface EcuRepairKnowledgeBaseProps {
+  savedSessions?: SavedBenchSession[];
+  savedLogs?: SavedDiagnosticLog[];
+  liveActiveDtcs?: DiagnosticTroubleCode[];
+  onOpenSavedBenches?: () => void;
+}
+
+export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
+  savedSessions = [],
+  savedLogs = [],
+  liveActiveDtcs = [],
+  onOpenSavedBenches,
+}) => {
   const [activeMode, setActiveMode] = useState<'OEM_MANUALS' | 'LIVE_GROUNDING_SEARCH'>('OEM_MANUALS');
   const [groundingPrefill, setGroundingPrefill] = useState<{ query: string; ecu: string; dtc: string } | null>(null);
 
@@ -470,6 +485,39 @@ export const EcuRepairKnowledgeBase: React.FC = () => {
       query: `${art.vehicleModel} ${art.dtcCode} ${art.title} bench testing wiring diagnostic bulletin`,
       ecu: art.vehicleModel,
       dtc: art.dtcCode,
+    });
+    setActiveMode('LIVE_GROUNDING_SEARCH');
+  };
+
+  const handleSelectDtcFromChart = (dtcCode: string) => {
+    const codeUpper = dtcCode.toUpperCase();
+    const matched = REPAIR_KNOWLEDGE_BASE.find(
+      (art) =>
+        art.dtcCode.toUpperCase().includes(codeUpper) ||
+        art.title.toUpperCase().includes(codeUpper) ||
+        art.symptoms.some((s) => s.toUpperCase().includes(codeUpper))
+    );
+
+    if (matched) {
+      setSelectedCategory('ALL');
+      setSearchQuery(dtcCode);
+      setSelectedArticle(matched);
+      setActiveMode('OEM_MANUALS');
+    } else {
+      setGroundingPrefill({
+        query: `${dtcCode} automotive ECU bench diagnostic procedure pinout TSB`,
+        ecu: 'Universal ECU Bench',
+        dtc: dtcCode,
+      });
+      setActiveMode('LIVE_GROUNDING_SEARCH');
+    }
+  };
+
+  const handleSearchGroundingForDtc = (dtcCode: string) => {
+    setGroundingPrefill({
+      query: `${dtcCode} automotive ECU diagnostic procedure wiring pinout bulletin`,
+      ecu: 'Universal ECU Bench',
+      dtc: dtcCode,
     });
     setActiveMode('LIVE_GROUNDING_SEARCH');
   };
@@ -567,7 +615,17 @@ export const EcuRepairKnowledgeBase: React.FC = () => {
           />
         </div>
       ) : (
-        <div className="flex-1 flex flex-col lg:flex-row gap-3 overflow-y-auto lg:overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col gap-3 overflow-y-auto lg:overflow-hidden min-h-0">
+          <DtcFrequencyWidget
+            savedSessions={savedSessions}
+            savedLogs={savedLogs}
+            liveActiveDtcs={liveActiveDtcs}
+            onSelectDtc={handleSelectDtcFromChart}
+            onSearchGroundingDtc={handleSearchGroundingForDtc}
+            onOpenSavedBenches={onOpenSavedBenches}
+          />
+
+          <div className="flex-1 flex flex-col lg:flex-row gap-3 overflow-y-auto lg:overflow-hidden min-h-0">
         
         {/* Left Column: Article Index List */}
         <div className="w-full lg:w-[380px] flex flex-col gap-2 bg-slate-900 border border-slate-800 rounded-xl p-3 overflow-hidden shadow-inner shrink-0">
@@ -751,6 +809,7 @@ export const EcuRepairKnowledgeBase: React.FC = () => {
 
         </div>
 
+        </div>
       </div>
       )}
     </div>

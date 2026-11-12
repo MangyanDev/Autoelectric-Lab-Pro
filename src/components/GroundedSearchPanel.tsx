@@ -14,12 +14,15 @@ import {
   ArrowRight,
   ShieldCheck,
   Radio,
+  BookmarkPlus,
 } from 'lucide-react';
 import {
   performGroundedSearch,
   GroundedSearchResult,
   GroundedSearchSource,
 } from '../services/groundedSearchService';
+import { useAuth } from '../context/AuthContext';
+import { saveDiagnosticLog } from '../services/benchStorageService';
 
 interface GroundedSearchPanelProps {
   initialQuery?: string;
@@ -80,12 +83,15 @@ export const GroundedSearchPanel: React.FC<GroundedSearchPanelProps> = ({
   initialEcu = '',
   className = '',
 }) => {
+  const { user, signInWithGoogle } = useAuth();
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [ecuModel, setEcuModel] = useState(initialEcu);
   const [dtcCode, setDtcCode] = useState(initialDtc);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<GroundedSearchResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isSavingBookmark, setIsSavingBookmark] = useState(false);
 
   const handleSearch = async (queryText?: string, ecuOverride?: string, dtcOverride?: string) => {
     const q = queryText !== undefined ? queryText : searchQuery;
@@ -96,6 +102,7 @@ export const GroundedSearchPanel: React.FC<GroundedSearchPanelProps> = ({
 
     setIsLoading(true);
     setResult(null);
+    setIsBookmarked(false);
 
     try {
       const res = await performGroundedSearch({
@@ -126,6 +133,30 @@ export const GroundedSearchPanel: React.FC<GroundedSearchPanelProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleBookmarkResult = async () => {
+    if (!result || result.status !== 'SUCCESS' || isSavingBookmark) return;
+    if (!user) {
+      await signInWithGoogle();
+      return;
+    }
+    setIsSavingBookmark(true);
+    try {
+      await saveDiagnosticLog(user.uid, {
+        title: searchQuery.trim().slice(0, 150) || 'Grounded OEM TSB Lookup',
+        dtcCode: dtcCode.trim(),
+        ecuModel: ecuModel.trim(),
+        sourceType: 'GROUNDED_TSB',
+        summary: result.answer,
+        sources: result.sources,
+      });
+      setIsBookmarked(true);
+    } catch (err) {
+      console.error('Failed to bookmark TSB:', err);
+    } finally {
+      setIsSavingBookmark(false);
+    }
+  };
+
   return (
     <div className={`flex flex-col gap-3 bg-slate-900 border border-slate-800 rounded-xl p-3.5 shadow-md font-mono ${className}`}>
       {/* Header bar */}
@@ -151,22 +182,44 @@ export const GroundedSearchPanel: React.FC<GroundedSearchPanelProps> = ({
         </div>
 
         {result && (
-          <button
-            onClick={handleCopyReport}
-            className="self-start sm:self-auto flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-          >
-            {copied ? (
-              <>
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-300">Copied</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5 text-slate-400" />
-                <span>Copy Intel</span>
-              </>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {result.status === 'SUCCESS' && (
+              <button
+                onClick={handleBookmarkResult}
+                disabled={isSavingBookmark || isBookmarked}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded bg-cyan-950 hover:bg-cyan-900 disabled:opacity-75 text-cyan-200 border border-cyan-600/80 transition"
+                title={user ? 'Save this TSB & sources to your Diagnostic Logs' : 'Sign in with Google to save this TSB'}
+              >
+                {isBookmarked ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-300">Saved to Logs</span>
+                  </>
+                ) : (
+                  <>
+                    <BookmarkPlus className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>{isSavingBookmark ? 'Saving...' : user ? 'Save TSB' : 'Sign In & Save'}</span>
+                  </>
+                )}
+              </button>
             )}
-          </button>
+            <button
+              onClick={handleCopyReport}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+            >
+              {copied ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-emerald-300">Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Copy Intel</span>
+                </>
+              )}
+            </button>
+          </div>
         )}
       </div>
 

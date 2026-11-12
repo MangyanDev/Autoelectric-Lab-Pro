@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   DEFAULT_ECU_PINS,
   DEFAULT_BENCH_COMPONENTS,
@@ -24,6 +24,15 @@ import { EcuConnectorPinouts } from './components/EcuConnectorPinouts';
 import { IntroductionModal } from './components/IntroductionModal';
 import { EcuRepairKnowledgeBase } from './components/EcuRepairKnowledgeBase';
 import { GroundedSearchModal } from './components/GroundedSearchModal';
+import { BenchCloudModal } from './components/BenchCloudModal';
+import { OfflineAssistantModal } from './components/OfflineAssistantModal';
+import {
+  SavedBenchSession,
+  SavedDiagnosticLog,
+  subscribeBenchSessions,
+  subscribeDiagnosticLogs,
+} from './services/benchStorageService';
+import { useAuth } from './context/AuthContext';
 import {
   Zap,
   Activity,
@@ -38,14 +47,50 @@ import {
   HelpCircle,
   BookOpen,
   Globe,
+  Save,
+  Bot,
 } from 'lucide-react';
 
 type LabTab = 'BENCH_LAB' | 'WIRING_DIAGRAM' | 'ECU_PINOUT' | 'OSCILLOSCOPE' | 'PCB_SCANNER' | 'REPAIR_GUIDE';
 type RackFilter = 'ALL' | 'DMM_POWER' | 'FAULT_MATRIX';
 
 export default function App() {
+  const { user, authReady } = useAuth();
+
   // Introduction View Modal (opens automatically on initial app launch)
   const [showIntroModal, setShowIntroModal] = useState(true);
+
+  // Saved Bench & Diagnostic Logs Modal
+  const [showCloudModal, setShowCloudModal] = useState(false);
+
+  // 100% Offline MiniSearch Diagnostic Chatbot Modal
+  const [showOfflineBot, setShowOfflineBot] = useState(false);
+  const [savedLogs, setSavedLogs] = useState<SavedDiagnosticLog[]>([]);
+  const [savedSessions, setSavedSessions] = useState<SavedBenchSession[]>([]);
+
+  useEffect(() => {
+    if (!authReady || !user) {
+      setSavedLogs([]);
+      setSavedSessions([]);
+      return;
+    }
+
+    const unsubLogs = subscribeDiagnosticLogs(
+      user.uid,
+      (logs) => setSavedLogs(logs),
+      () => {}
+    );
+    const unsubSessions = subscribeBenchSessions(
+      user.uid,
+      (sessions) => setSavedSessions(sessions),
+      () => {}
+    );
+
+    return () => {
+      unsubLogs();
+      unsubSessions();
+    };
+  }, [authReady, user]);
 
   // Live Google Search Grounding Modal State
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -175,6 +220,35 @@ export default function App() {
     });
   };
 
+  // Restore saved bench session into live MNA state
+  const handleLoadBenchSession = (session: SavedBenchSession) => {
+    if (session.powerSupply) {
+      setPowerSupply(session.powerSupply);
+    }
+    if (Array.isArray(session.wires)) {
+      setWires(session.wires);
+    }
+    if (Array.isArray(session.faults)) {
+      setFaults(
+        session.faults.map((f) => ({
+          pinId: f.pinId,
+          faultType: f.faultType as FaultType,
+          description: f.description,
+          timestamp: f.timestamp,
+        }))
+      );
+    }
+    if (session.componentStates) {
+      setComponents((prev) =>
+        prev.map((c) =>
+          session.componentStates[c.id]
+            ? { ...c, state: { ...c.state, ...session.componentStates[c.id] } }
+            : c
+        )
+      );
+    }
+  };
+
   const hasCanFault = faults.some(f => f.pinId === 'ecu-pin-13' || f.pinId === 'ecu-pin-14');
   const hasInjectorFault = faults.some(f => f.pinId === 'ecu-pin-10');
 
@@ -297,6 +371,26 @@ export default function App() {
               <option value="4.0">4.0x Turbo</option>
             </select>
           </div>
+
+          <button
+            onClick={() => setShowCloudModal(true)}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-emerald-300 bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-700/80 rounded-lg transition whitespace-nowrap shrink-0 shadow-sm"
+            title="Save or Load Bench Workspaces & Diagnostic Logs"
+          >
+            <Save className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">{user ? 'Saved Benches' : 'Save Bench'}</span>
+            <span className="sm:hidden">Save</span>
+          </button>
+
+          <button
+            onClick={() => setShowOfflineBot(true)}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-amber-200 bg-amber-950/80 hover:bg-amber-900/80 border border-amber-600/70 rounded-lg transition whitespace-nowrap shrink-0 shadow-sm"
+            title="100% Offline Diagnostic Assistant (MiniSearch Local Engine)"
+          >
+            <Bot className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Offline Bot</span>
+            <span className="sm:hidden">Bot</span>
+          </button>
 
           <button
             onClick={() => handleOpenGroundedSearch()}
@@ -540,7 +634,12 @@ export default function App() {
         {/* TAB 5: ECU REPAIR KNOWLEDGE BASE & MANUALS */}
         {activeTab === 'REPAIR_GUIDE' && (
           <div className="flex-1 flex overflow-hidden">
-            <EcuRepairKnowledgeBase />
+            <EcuRepairKnowledgeBase
+              savedSessions={savedSessions}
+              savedLogs={savedLogs}
+              liveActiveDtcs={circuitSolution.activeDTCs}
+              onOpenSavedBenches={() => setShowCloudModal(true)}
+            />
           </div>
         )}
       </div>
@@ -603,6 +702,48 @@ export default function App() {
         initialQuery={groundedSearchQuery}
         initialDtc={groundedSearchDtc}
         initialEcu={groundedSearchEcu}
+      />
+
+      {/* Saved Bench Workspaces & Diagnostic Case Logs Modal */}
+      <BenchCloudModal
+        isOpen={showCloudModal}
+        onClose={() => setShowCloudModal(false)}
+        powerSupply={powerSupply}
+        wires={wires}
+        faults={faults}
+        components={components}
+        activeDTCs={circuitSolution.activeDTCs}
+        supplyCurrentDrawAmps={circuitSolution.supplyCurrentDrawAmps}
+        onLoadBenchSession={handleLoadBenchSession}
+      />
+
+      {/* 100% Offline Diagnostic Chatbot Modal */}
+      <OfflineAssistantModal
+        isOpen={showOfflineBot}
+        onClose={() => setShowOfflineBot(false)}
+        liveContext={{
+          powerSupply,
+          pins,
+          wires,
+          faults,
+          activeDTCs: circuitSolution.activeDTCs,
+          nodeVoltages: circuitSolution.nodeVoltages,
+          supplyCurrentDrawAmps: circuitSolution.supplyCurrentDrawAmps,
+          isSupplyCurrentTripped: circuitSolution.isSupplyCurrentTripped,
+          multimeter,
+          multimeterDisplay: circuitSolution.multimeterReading.display,
+          multimeterUnit: circuitSolution.multimeterReading.unit,
+          multimeterWarning: circuitSolution.multimeterReading.warningMessage,
+          selectedPinId,
+        }}
+        savedLogs={savedLogs}
+        savedSessions={savedSessions}
+        onNavigateTab={(tab, pinId) => {
+          setActiveTab(tab);
+          if (pinId) {
+            setSelectedPinId(pinId);
+          }
+        }}
       />
     </div>
   );

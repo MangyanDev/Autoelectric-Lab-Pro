@@ -1,0 +1,207 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated technician or trainee profile in Virtual ECU Lab.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Authentication UID."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Verified Google account email."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120,
+          "description": "Technician display name."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["uid", "email", "createdAt", "updatedAt"]
+    },
+    "BenchSession": {
+      "title": "BenchSession",
+      "description": "Saved Virtual ECU Lab bench workspace state including wiring harness, power supply, sensor positions, and injected faults.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 1000
+        },
+        "ecuProfileLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "powerSupply": {
+          "type": "object",
+          "description": "Bench power supply configuration (voltageSetting, currentLimit, isOutputEnabled, preset)."
+        },
+        "wires": {
+          "type": "array",
+          "description": "Harness wire connections and cut states (max 50)."
+        },
+        "faults": {
+          "type": "array",
+          "description": "Active injected electrical faults (max 20)."
+        },
+        "componentStates": {
+          "type": "object",
+          "description": "Bench sensor/actuator state values such as TPS throttle % and ECT temp C."
+        },
+        "activeDtcs": {
+          "type": "array",
+          "description": "MNA-solved active OBD-II DTC codes (max 20)."
+        },
+        "supplyCurrentDrawAmps": {
+          "type": "number",
+          "description": "MNA-solved total bench supply current draw in Amperes."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "title",
+        "ecuProfileLabel",
+        "powerSupply",
+        "wires",
+        "faults",
+        "componentStates",
+        "activeDtcs",
+        "supplyCurrentDrawAmps",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DiagnosticLog": {
+      "title": "DiagnosticLog",
+      "description": "Saved diagnostic case note or Google Search Grounding TSB/pinout bookmark.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "dtcCode": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 32
+        },
+        "ecuModel": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "sourceType": {
+          "type": "string",
+          "enum": ["GROUNDED_TSB", "BENCH_SNAPSHOT", "PINOUT_NOTE"]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "sources": {
+          "type": "array",
+          "description": "Verified web grounding source links (max 20)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "title",
+        "sourceType",
+        "summary",
+        "sources",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Private technician profile keyed by Firebase Auth UID."
+    },
+    "/users/{userId}/benchSessions/{sessionId}": {
+      "schema": {
+        "$ref": "#/entities/BenchSession"
+      },
+      "description": "Saved ECU bench workspaces belonging to the authenticated user."
+    },
+    "/users/{userId}/diagnosticLogs/{logId}": {
+      "schema": {
+        "$ref": "#/entities/DiagnosticLog"
+      },
+      "description": "Saved diagnostic logs and grounded TSB/pinout bookmarks belonging to the authenticated user."
+    }
+  }
+}
