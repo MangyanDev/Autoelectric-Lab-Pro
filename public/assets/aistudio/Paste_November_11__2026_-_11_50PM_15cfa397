@@ -1,0 +1,1641 @@
+AUTOELECTRIC LAB — PRODUCTION AI + PCB/SCHEMATIC SCANNER PATCH
+
+IMPORTANTENG INSTRUCTION
+
+Ikaw ang coding agent na mag-aapply ng changes sa EXISTING Autoelectric Lab repository.
+
+HUWAG gumawa ng bagong project.
+
+HUWAG burahin ang existing features.
+
+HUWAG palitan ang buong UI kung hindi kailangan.
+
+HUWAG gumawa ng pekeng component recognition o pekeng electrical nets.
+
+I-preserve ang kasalukuyang:
+
+- manual PCB review
+- component observation
+- electrical net/path observation
+- technician annotations
+- project management
+- JSON backup/restore
+- board comparison
+- layer manager
+- zoom/pan
+- virtual probes
+- existing vehicle/ECU features
+- source verification workflow
+
+Ang pangunahing goal ay gawing totoong gumagana ang AI image-analysis pipeline at gawing production/deployment-ready ang application.
+
+---
+
+1. CURRENT PROBLEM NA DAPAT AYUSIN
+
+Sa existing project:
+
+"artifacts/autoelectric-lab/src/components/SchematicPcbScanner.tsx"
+
+ay nagse-save lamang ng uploaded image bilang "UploadedDocument".
+
+Ang current upload flow ay:
+
+Image Upload
+    ↓
+FileReader
+    ↓
+UploadedDocument
+    ↓
+Manual Review
+
+Walang actual:
+
+Image
+ ↓
+Backend API
+ ↓
+Vision AI
+ ↓
+Structured Component Detection
+ ↓
+Electrical Net Analysis
+ ↓
+DetectedComponent[]
+ElectricalNet[]
+ ↓
+PCB/Schematic Canvas
+
+Samantala, ang existing backend endpoint:
+
+POST /api/autoelectric/gemini/analyze-schematic
+
+ay kasalukuyang bumabalik lang ng:
+
+MANUAL_ONLY
+
+at:
+
+components: []
+nets: []
+
+Kailangang palitan ito.
+
+---
+
+2. PRODUCTION ARCHITECTURE
+
+Gawin ang architecture na ito:
+
+React Frontend
+      |
+      | multipart/base64 image
+      v
+Express API Server
+      |
+      v
+Image Analysis Service
+      |
+      +---- GEMINI_PROVIDER
+      |
+      +---- OPENAI_PROVIDER
+      |
+      +---- MANUAL_ONLY
+      |
+      v
+Normalized Analysis Result
+      |
+      +---- Components
+      +---- Terminals
+      +---- Nets
+      +---- Bounding Boxes
+      +---- Confidence
+      +---- Verification Status
+      |
+      v
+SchematicPcbScanner
+      |
+      +---- Canvas
+      +---- Component list
+      +---- Net list
+      +---- Manual correction
+      +---- Verification
+
+Ang frontend ay HINDI dapat direktang tumawag sa Google o OpenAI API.
+
+API key ay backend-only.
+
+---
+
+3. PROVIDER CONFIGURATION
+
+Magkaroon ng environment variable:
+
+IMAGE_ANALYSIS_PROVIDER=gemini
+
+Allowed values:
+
+gemini
+openai
+manual
+
+Default:
+
+manual
+
+Kapag walang API key:
+
+MANUAL_ONLY
+
+Huwag gumawa ng fake AI result kapag walang provider.
+
+---
+
+4. GOOGLE PROVIDER
+
+Gamitin ang existing dependency:
+
+"@google/genai": "^3.0.0"
+
+Huwag gawing requirement ang Google AI Studio UI.
+
+Gamitin ang Gemini API server-side.
+
+Environment:
+
+GEMINI_API_KEY=
+GEMINI_MODEL=
+
+Default model ay dapat nasa environment variable at hindi hardcoded sa frontend.
+
+---
+
+5. OPENAI PROVIDER
+
+Magdagdag ng server-side OpenAI provider.
+
+Environment:
+
+OPENAI_API_KEY=
+OPENAI_MODEL=
+
+Huwag ilagay ang key sa React code.
+
+Ang provider ay dapat interchangeable.
+
+Halimbawa:
+
+export type ImageAnalysisProviderName =
+  | "gemini"
+  | "openai"
+  | "manual";
+
+At interface:
+
+export interface ImageAnalysisProvider {
+  analyzeImage(input: {
+    imageBase64: string;
+    documentName: string;
+    documentType: string;
+    regionBox?: {
+      ymin?: number;
+      xmin?: number;
+      ymax?: number;
+      xmax?: number;
+    } | null;
+  }): Promise<ImageAnalysisResult>;
+}
+
+---
+
+6. NORMALIZED AI RESULT
+
+Gumawa ng internal normalized result:
+
+export interface ImageAnalysisResult {
+  documentType: string;
+
+  confidenceScore: number;
+
+  detectionMethod:
+    | "AI_ANALYZED"
+    | "MANUAL_ONLY";
+
+  analysisSummary: string;
+
+  components: ImageAnalysisComponent[];
+
+  terminals: ImageAnalysisTerminal[];
+
+  nets: ImageAnalysisNet[];
+
+  warnings: string[];
+
+  model: string;
+
+  provider: string;
+}
+
+Component:
+
+export interface ImageAnalysisComponent {
+  refDes: string;
+
+  category: string;
+
+  marking: string;
+
+  decodedValue: string;
+
+  packageType: string;
+
+  bbox: {
+    ymin: number;
+    xmin: number;
+    ymax: number;
+    xmax: number;
+  };
+
+  confidenceScore: number;
+
+  verificationStatus:
+    | "VERIFIED"
+    | "CROSS_REFERENCED"
+    | "UNVERIFIED"
+    | "UNKNOWN";
+
+  circuitFunction: string;
+
+  terminalIds: string[];
+
+  notes?: string;
+}
+
+Terminal:
+
+export interface ImageAnalysisTerminal {
+  id: string;
+
+  componentRefDes: string;
+
+  terminalName: string;
+
+  bbox: {
+    ymin: number;
+    xmin: number;
+    ymax: number;
+    xmax: number;
+  };
+
+  confidenceScore: number;
+}
+
+Net:
+
+export interface ImageAnalysisNet {
+  name: string;
+
+  signalType: string;
+
+  connectedComponentRefs: string[];
+
+  connectedTerminalIds: string[];
+
+  tracePoints: {
+    x: number;
+    y: number;
+  }[];
+
+  confidenceScore: number;
+
+  verificationStatus:
+    | "VERIFIED"
+    | "CROSS_REFERENCED"
+    | "UNVERIFIED"
+    | "UNKNOWN";
+
+  isComplete: boolean;
+
+  incompleteNotes?: string;
+}
+
+---
+
+7. CRITICAL VERIFICATION RULE
+
+AI detection must NEVER automatically become:
+
+VERIFIED
+
+Default AI result:
+
+UNVERIFIED
+
+Use:
+
+VERIFIED
+
+ONLY when the application has an independent authoritative source or technician confirmation.
+
+Use:
+
+CROSS_REFERENCED
+
+when the observation agrees with another independent technical source.
+
+Use:
+
+UNVERIFIED
+
+for plausible AI detections that still need review.
+
+Use:
+
+UNKNOWN
+
+when there is insufficient evidence.
+
+This rule applies to:
+
+- component identity
+- marking
+- decoded value
+- pin assignment
+- circuit function
+- net name
+- trace connectivity
+- voltage assumptions
+- resistance assumptions
+- expected behavior
+
+AI-generated technical information must never be presented as OEM-confirmed information.
+
+---
+
+8. IMAGE ANALYSIS PROMPT
+
+Use a strict engineering prompt similar to this:
+
+You are an automotive electronics inspection assistant.
+
+Analyze the supplied PCB photograph, PCB layout image, schematic, connector pinout, or technical electrical image.
+
+IMPORTANT:
+
+Do not invent components.
+Do not invent reference designators.
+Do not invent values.
+Do not invent electrical connections.
+Do not infer a trace when the image does not provide sufficient visual evidence.
+Do not assume OEM specifications.
+Do not label AI observations as verified.
+
+Return ONLY structured JSON matching the requested schema.
+
+For every component you can visually identify, report:
+
+- reference designator if visible
+- component category
+- visible marking
+- decoded value only when visually supported
+- package type when visually supported
+- normalized bounding box
+- confidence score
+- terminal locations when visible
+- likely circuit function only when visually supported
+
+For traces/nets:
+
+Only report a connection when there is sufficient visual evidence.
+
+If a trace is blocked, hidden, blurred, cut off, or ambiguous:
+
+- do not guess
+- mark the net incomplete
+- include an explanation
+
+For every technical observation use one of:
+
+UNVERIFIED
+UNKNOWN
+
+Never use VERIFIED unless the supplied source itself explicitly establishes verification.
+
+If the image is too poor to analyze, return empty arrays and explain why.
+
+Confidence must be between 0 and 1.
+
+Bounding boxes use coordinates from 0 to 1000.
+
+The result must represent visual observations, not fabricated automotive specifications.
+
+---
+
+9. API VALIDATION
+
+Existing endpoint:
+
+POST /api/autoelectric/gemini/analyze-schematic
+
+must validate:
+
+documentName
+documentType
+imageBase64
+regionBox
+
+Reject oversized payloads.
+
+Do NOT silently accept missing images.
+
+If no image exists:
+
+400
+
+If provider is not configured:
+
+503
+
+with a clear message that AI analysis is unavailable and manual review remains available.
+
+Do not return fake:
+
+SUCCESS + empty AI result
+
+when the AI provider actually failed.
+
+---
+
+10. API ROUTE BEHAVIOR
+
+Replace the current hardcoded implementation.
+
+Current bad behavior:
+
+res.json(
+  AnalyzeAutoelectricSchematicResponse.parse({
+    status: "SUCCESS",
+    analysis: {
+      documentType,
+      confidenceScore: 0,
+      detectionMethod: "MANUAL_ONLY",
+      components: [],
+      nets: [],
+    },
+    model: "manual-only",
+  }),
+);
+
+This must be removed for configured AI providers.
+
+Correct behavior:
+
+Request
+ ↓
+validate
+ ↓
+select provider
+ ↓
+analyze image
+ ↓
+normalize response
+ ↓
+validate normalized result
+ ↓
+return result
+
+---
+
+11. PROVIDER SELECTION
+
+Create:
+
+artifacts/api-server/src/services/imageAnalysisProvider.ts
+
+with:
+
+export function getImageAnalysisProvider(): ImageAnalysisProvider {
+  const provider =
+    process.env.IMAGE_ANALYSIS_PROVIDER?.trim().toLowerCase() || "manual";
+
+  switch (provider) {
+    case "gemini":
+      return createGeminiImageAnalysisProvider();
+
+    case "openai":
+      return createOpenAIImageAnalysisProvider();
+
+    case "manual":
+    default:
+      return createManualImageAnalysisProvider();
+  }
+}
+
+Do not import Google/OpenAI code directly inside the route.
+
+The route should only depend on the provider interface.
+
+---
+
+12. GEMINI IMPLEMENTATION
+
+Create:
+
+artifacts/api-server/src/services/geminiImageAnalysisProvider.ts
+
+Use the existing:
+
+@google/genai
+
+package.
+
+Read:
+
+GEMINI_API_KEY
+GEMINI_MODEL
+
+The provider must send:
+
+image
++
+engineering prompt
++
+JSON schema
+
+to Gemini.
+
+Do not expose the API key.
+
+Parse the returned JSON.
+
+Reject malformed JSON.
+
+Never silently convert malformed AI output into fabricated values.
+
+If the model returns invalid JSON:
+
+throw controlled provider error
+
+and the API returns an appropriate failure response.
+
+---
+
+13. OPENAI IMPLEMENTATION
+
+Create:
+
+artifacts/api-server/src/services/openAIImageAnalysisProvider.ts
+
+Read:
+
+OPENAI_API_KEY
+OPENAI_MODEL
+
+Use a vision-capable OpenAI model available to the configured account.
+
+The provider must follow the same normalized output contract.
+
+Therefore:
+
+Gemini result
+        ↓
+Normalizer
+        ↓
+ImageAnalysisResult
+
+OpenAI result
+        ↓
+Normalizer
+        ↓
+ImageAnalysisResult
+
+The frontend must NOT care whether the result came from Gemini or OpenAI.
+
+---
+
+14. FRONTEND UPLOAD FLOW
+
+Modify:
+
+artifacts/autoelectric-lab/src/components/SchematicPcbScanner.tsx
+
+Current behavior:
+
+upload image
+↓
+save image
+↓
+manual review
+
+Change to:
+
+upload image
+↓
+validate image
+↓
+save image
+↓
+POST imageBase64 to backend
+↓
+receive AI result
+↓
+normalize
+↓
+create DetectedComponent records
+↓
+create ElectricalNet records
+↓
+attach sourceImageId
+↓
+save project
+↓
+display detected objects
+
+---
+
+15. DO NOT BREAK IMAGE STORAGE
+
+Keep:
+
+UploadedDocument.imageUrl
+
+because the current application already uses it for image display and backup.
+
+The uploaded image must still be stored locally exactly as the current manual-review system expects.
+
+Do not remove JSON backup support.
+
+---
+
+16. IMPORTANT: IMAGE BASE64
+
+The current upload code already obtains:
+
+reader.result
+
+as a Data URL.
+
+Use that safely.
+
+Before sending to the backend:
+
+const imageBase64 = imageUrl.includes(",")
+  ? imageUrl.split(",")[1]
+  : imageUrl;
+
+Do not send the entire:
+
+data:image/png;base64,...
+
+string unless the backend explicitly supports it.
+
+The API receives the base64 payload only.
+
+---
+
+17. ANALYSIS RESULT TO EXISTING TYPES
+
+Convert AI components into existing:
+
+DetectedComponent
+
+For each AI component:
+
+const component: DetectedComponent = {
+  id: crypto.randomUUID(),
+
+  refDes: result.refDes,
+
+  category: normalizedCategory,
+
+  marking: result.marking,
+
+  decodedValue: result.decodedValue,
+
+  packageType: result.packageType,
+
+  bbox: result.bbox,
+
+  confidenceScore: result.confidenceScore,
+
+  verificationStatus: result.verificationStatus,
+
+  circuitFunction: result.circuitFunction,
+
+  connectedNetIds: [],
+
+  sourceImageId: activeDocument.id,
+
+  notes: [
+    `AI provider: ${provider}`,
+    `AI model: ${model}`,
+    `AI observation. Technician verification required.`,
+    result.notes ?? "",
+  ]
+    .filter(Boolean)
+    .join(" "),
+};
+
+Do NOT mark it VERIFIED.
+
+---
+
+18. NET CONVERSION
+
+Convert AI nets into:
+
+ElectricalNet
+
+Use:
+
+{
+  id: crypto.randomUUID(),
+
+  sourceImageId: activeDocument.id,
+
+  name: net.name,
+
+  signalType: normalizedSignalType,
+
+  connectedComponentIds: [],
+
+  connectedTerminalIds: net.connectedTerminalIds,
+
+  tracePoints: net.tracePoints,
+
+  verificationStatus: net.verificationStatus,
+
+  isComplete: net.isComplete,
+
+  incompleteNotes: net.incompleteNotes,
+}
+
+Resolve:
+
+connectedComponentRefs
+
+to actual component IDs.
+
+Example:
+
+const refToId = new Map(
+  components.map(component => [
+    component.refDes.toUpperCase(),
+    component.id,
+  ]),
+);
+
+Then:
+
+connectedComponentIds = net.connectedComponentRefs
+  .map(ref => refToId.get(ref.toUpperCase()))
+  .filter((id): id is string => Boolean(id));
+
+---
+
+19. DO NOT FAKE TRACE GEOMETRY
+
+This is critical.
+
+The AI must not create:
+
+tracePoints
+
+just because two components are electrically likely to be connected.
+
+Trace points are allowed only when visual evidence exists.
+
+If the image does not clearly show the trace:
+
+tracePoints: []
+isComplete: false
+incompleteNotes: "Visual trace continuity could not be established from the supplied image."
+verificationStatus: "UNVERIFIED"
+
+This prevents the scanner from becoming a hallucination engine.
+
+---
+
+20. COMPONENT CATEGORY NORMALIZATION
+
+Create a mapper from AI labels into existing:
+
+ComponentCategory
+
+Examples:
+
+resistor → RESISTOR
+resistance → RESISTOR
+
+capacitor → CAPACITOR
+
+electrolytic capacitor → ELECTROLYTIC_CAP
+
+diode → DIODE
+
+zener → ZENER_DIODE
+
+TVS → TVS_DIODE
+
+mosfet → MOSFET
+
+transistor → TRANSISTOR
+
+microcontroller → MICROCONTROLLER
+
+EEPROM → EEPROM
+
+CAN transceiver → CAN_TRANSCEIVER
+
+LIN transceiver → LIN_TRANSCEIVER
+
+fuse → FUSE
+
+connector → CONNECTOR
+
+test point → TEST_POINT
+
+Unknown labels:
+
+UNKNOWN
+
+Never crash because the AI used a slightly different label.
+
+---
+
+21. SIGNAL TYPE NORMALIZATION
+
+Map AI signal descriptions to the project's existing "SignalType".
+
+Examples:
+
+power
+battery
+VBAT
+12V
+BATT
+→ appropriate power/battery signal type
+
+ground
+GND
+AGND
+DGND
+→ ground signal type
+
+CAN
+CAN_H
+CAN_L
+→ CAN-related type
+
+LIN
+→ LIN-related type
+
+analog
+sensor
+→ analog type
+
+digital
+logic
+→ digital type
+
+If no safe mapping exists:
+
+UNKNOWN
+
+Do not invent a signal type.
+
+---
+
+22. DUPLICATE PROTECTION
+
+Before adding AI components:
+
+check existing components on the same document.
+
+Do not create duplicate records when the same:
+
+refDes
+
+already exists.
+
+If a component already exists manually:
+
+- preserve the manual record
+- update only fields that are explicitly safe to merge
+- do not overwrite technician-entered verified data with AI data
+
+Priority:
+
+VERIFIED technician/source data
+        >
+CROSS_REFERENCED data
+        >
+UNVERIFIED AI data
+        >
+UNKNOWN
+
+---
+
+23. SOURCE PRIORITY SYSTEM
+
+Add or preserve the source hierarchy:
+
+LEVEL 1 — VERIFIED PRIMARY SOURCE
+
+Examples:
+
+- manufacturer datasheet
+- official technical manual
+- measured lab result
+- technician-confirmed observation
+
+LEVEL 2 — CROSS-REFERENCED
+
+Multiple independent technical sources agree.
+
+LEVEL 3 — UNVERIFIED
+
+AI detection or secondary technical information requiring review.
+
+LEVEL 4 — UNKNOWN
+
+Insufficient evidence.
+
+AI output should normally begin at:
+
+UNVERIFIED
+
+---
+
+24. UI STATUS
+
+Replace:
+
+AUTOMATED INTERPRETATION OFF
+
+with dynamic status.
+
+Examples:
+
+AI ANALYSIS READY
+
+AI ANALYSIS RUNNING
+
+AI ANALYSIS COMPLETE
+
+MANUAL REVIEW REQUIRED
+
+AI ANALYSIS UNAVAILABLE
+
+The status must reflect the actual provider state.
+
+Do not claim AI analysis happened when the provider failed.
+
+---
+
+25. ANALYSIS SUMMARY
+
+After analysis, display something similar to:
+
+Image analysis completed.
+
+Detected:
+12 components
+4 electrical nets
+7 terminals
+
+Overall confidence:
+0.81
+
+Verification:
+UNVERIFIED — technician review required
+
+Trace completeness:
+3 complete
+1 incomplete
+
+Numbers must come from the actual result.
+
+Do not fabricate counts.
+
+---
+
+26. ERROR HANDLING
+
+Frontend errors:
+
+Image too large
+Unsupported format
+Invalid image
+Network error
+API unavailable
+Provider unavailable
+Malformed AI response
+
+must be shown clearly.
+
+Never leave:
+
+isAnalyzing === true
+
+after an error.
+
+Always use:
+
+finally {
+  setIsAnalyzing(false);
+}
+
+where appropriate.
+
+---
+
+27. RETRY
+
+Add:
+
+Analyze Again
+
+only when the image exists and the previous analysis failed.
+
+Retry must call the backend again.
+
+Do not create duplicate components during retry.
+
+Before retry:
+
+remove only previous AI observations belonging to that analysis/document
+
+or use an analysis run ID so results can be safely replaced.
+
+Do NOT remove manual technician observations.
+
+---
+
+28. ANALYSIS RUN ID
+
+Add:
+
+analysisRunId: string;
+
+to AI-generated records where practical.
+
+This allows:
+
+AI run #1
+AI run #2
+AI run #3
+
+without destroying manual work.
+
+If modifying the existing public type is too disruptive, store it in "notes" or a compatible metadata field.
+
+---
+
+29. SECURITY
+
+Never expose:
+
+GEMINI_API_KEY
+OPENAI_API_KEY
+
+to frontend.
+
+Never put keys in:
+
+VITE_*
+
+environment variables.
+
+Never commit keys into Git.
+
+Add:
+
+.env
+.env.local
+.env.production
+
+to ".gitignore" as appropriate.
+
+Create:
+
+.env.example
+
+containing only placeholders:
+
+IMAGE_ANALYSIS_PROVIDER=gemini
+
+GEMINI_API_KEY=
+GEMINI_MODEL=
+
+OPENAI_API_KEY=
+OPENAI_MODEL=
+
+---
+
+30. DEPLOYMENT
+
+The app must be deployable as a normal web application.
+
+Frontend:
+
+React/Vite
+
+Backend:
+
+Node/Express
+
+The backend must expose the existing API.
+
+Do not make the production app dependent on opening Google AI Studio.
+
+AI Studio may be used for development/testing, but production requests must go:
+
+Published App
+    ↓
+Production Backend
+    ↓
+Gemini API OR OpenAI API
+
+---
+
+31. HEALTH ENDPOINT
+
+Update:
+
+GET /api/autoelectric/health
+
+so it reports the real mode.
+
+Example:
+
+{
+  "status": "ONLINE",
+  "system": "Autoelectric Lab source-review service",
+  "hasApiKey": true,
+  "serviceMode": "AI_IMAGE_ANALYSIS",
+  "technicalAnswersEnabled": true,
+  "imageAnalysisProvider": "gemini",
+  "timestamp": "..."
+}
+
+Do not expose the API key itself.
+
+"hasApiKey" should be boolean only.
+
+If the provider is unavailable:
+
+serviceMode:
+"MANUAL_REVIEW"
+
+---
+
+32. DO NOT ENABLE UNSAFE TECHNICAL ANSWERS
+
+Do NOT change the existing source-review safety model just to make the AI appear more capable.
+
+The system must distinguish:
+
+visual observation
+
+from:
+
+technical specification
+
+and from:
+
+verified OEM information
+
+For example, if AI sees:
+
+7805
+
+it may report:
+
+marking: "7805"
+confidenceScore: 0.94
+verificationStatus: "UNVERIFIED"
+
+It must NOT automatically claim:
+
+verified 5V regulator
+
+unless another authoritative source confirms it.
+
+---
+
+33. DATA PROVENANCE
+
+Every AI-generated component should retain provenance.
+
+At minimum:
+
+provider
+model
+analysis timestamp
+verification status
+confidence
+source image ID
+
+Example notes:
+
+Observed by AI image analysis.
+Provider: Gemini.
+Model: configured production model.
+Confidence: 0.91.
+Verification status: UNVERIFIED.
+Technician confirmation required.
+
+---
+
+34. PRODUCTION LOGGING
+
+Backend should log:
+
+provider
+model
+request success/failure
+analysis duration
+component count
+net count
+
+Do NOT log:
+
+API keys
+full image base64
+sensitive credentials
+
+Do not log raw uploaded images.
+
+---
+
+35. RESPONSE TIMEOUT
+
+The image-analysis provider must have a timeout.
+
+Do not allow a request to hang indefinitely.
+
+Return a controlled error such as:
+
+Image analysis timed out. The uploaded image remains available for manual review.
+
+---
+
+36. FILE SIZE
+
+Keep the existing browser-local image limit unless the architecture is intentionally changed.
+
+Current limit:
+
+2 MB
+
+Do not suddenly increase it just because the AI provider accepts larger files.
+
+The browser-local project storage depends on the current image strategy.
+
+If larger images are desired later, implement object storage separately.
+
+---
+
+37. TYPECHECK
+
+After modifications:
+
+run:
+
+pnpm typecheck
+
+Fix every TypeScript error.
+
+Then:
+
+pnpm build
+
+Fix every production build error.
+
+Do not stop after frontend compilation.
+
+Check:
+
+root
+libs
+api-server
+autoelectric-lab
+
+---
+
+38. TEST THE COMPLETE FLOW
+
+Test this exact sequence:
+
+1. Open app
+2. Create project
+3. Upload PCB image
+4. Image is saved
+5. Analysis starts
+6. Backend receives image
+7. Provider analyzes image
+8. Structured JSON returned
+9. Components appear
+10. Nets appear
+11. Bounding boxes appear
+12. Confidence appears
+13. Verification status is UNVERIFIED
+14. Technician can correct component
+15. Technician can verify it
+16. Backup still works
+17. Restore still works
+18. Reload still preserves data
+
+---
+
+39. TEST BAD IMAGE
+
+Upload:
+
+- blurry image
+- dark image
+- glare-heavy image
+- rotated image
+- PCB with unreadable markings
+
+Expected:
+
+No hallucinated components.
+No fake nets.
+Low confidence or UNKNOWN.
+Clear warning.
+Manual review remains available.
+
+---
+
+40. TEST SCHEMATIC
+
+Upload a clear electrical schematic.
+
+Expected:
+
+component symbols detected
+reference designators detected when visible
+labels detected when visible
+nets detected only when visually supported
+trace/net confidence reported
+
+---
+
+41. TEST PHYSICAL PCB PHOTO
+
+Upload a real PCB photograph.
+
+Expected:
+
+SMD components
+connectors
+ICs
+fuses
+test points
+visible markings
+visible traces
+
+Only visually supported objects should be returned.
+
+---
+
+42. TEST RETRY
+
+Run analysis twice.
+
+Expected:
+
+No duplicate AI components.
+No duplicate nets.
+Manual observations preserved.
+
+---
+
+43. TEST PROVIDER SWITCHING
+
+With:
+
+IMAGE_ANALYSIS_PROVIDER=gemini
+
+Gemini should be used.
+
+With:
+
+IMAGE_ANALYSIS_PROVIDER=openai
+
+OpenAI should be used.
+
+With:
+
+IMAGE_ANALYSIS_PROVIDER=manual
+
+manual mode should work without any AI provider.
+
+The frontend should not need code changes when switching providers.
+
+---
+
+44. IMPORTANT: DO NOT INVENT MISSING PROJECT APIs
+
+Before coding, inspect the existing repository for:
+
+PCBProject
+DetectedComponent
+ElectricalNet
+UploadedDocument
+PcbStorageEngine
+usePcbLayerManager
+API client
+route registration
+environment configuration
+build configuration
+
+Reuse the actual existing names and types.
+
+Do not invent:
+
+projectsRef
+activeProjectId
+updateActiveProject
+setAnalysisError
+
+if they already exist under another name.
+
+In this repository they already exist in the scanner, so preserve them rather than duplicating them.
+
+---
+
+45. IMPORTANT: DO NOT CREATE A SECOND PCB SYSTEM
+
+Do not create a new:
+
+PCBProjectV2
+ComponentV2
+NetV2
+ScannerV2
+
+Use the existing types.
+
+The goal is integration, not replacement.
+
+---
+
+46. IMPORTANT: DO NOT MODIFY GENERATED FILES MANUALLY
+
+Files under:
+
+lib/api-zod/dist
+
+are generated.
+
+Do not manually edit generated "dist" files.
+
+If the API schema needs modification:
+
+1. modify the source/API specification
+2. regenerate
+3. run typecheck
+
+---
+
+47. BACKEND PROVIDER FILE STRUCTURE
+
+Target structure:
+
+artifacts/api-server/src/
+  routes/
+    autoelectric.ts
+
+  services/
+    imageAnalysisProvider.ts
+    geminiImageAnalysisProvider.ts
+    openAIImageAnalysisProvider.ts
+    manualImageAnalysisProvider.ts
+    imageAnalysisNormalizer.ts
+
+Keep provider-specific logic out of:
+
+SchematicPcbScanner.tsx
+
+---
+
+48. FRONTEND SERVICE
+
+Create:
+
+artifacts/autoelectric-lab/src/services/pcbImageAnalysisService.ts
+
+Responsibilities:
+
+POST request
+response validation
+normalization
+error handling
+
+The component should call something conceptually like:
+
+const result = await analyzePcbImage({
+  documentName: activeDocument.name,
+  documentType: activeDocument.documentType,
+  imageBase64,
+});
+
+Do not put provider logic inside the React component.
+
+---
+
+49. FRONTEND COMPONENT RESPONSIBILITY
+
+"SchematicPcbScanner.tsx" should only manage:
+
+upload
+UI state
+project state
+rendering
+manual editing
+
+It should not know:
+
+Gemini API syntax
+OpenAI API syntax
+API key
+provider-specific response structure
+
+---
+
+50. FINAL PRODUCTION CHECK
+
+Before declaring the feature complete, verify:
+
+[ ] Existing manual review still works
+[ ] Upload still works
+[ ] PCB image is stored
+[ ] Backend receives image
+[ ] Gemini provider works
+[ ] OpenAI provider works
+[ ] Manual fallback works
+[ ] Component detection works
+[ ] Bounding boxes work
+[ ] Marking detection works
+[ ] Confidence works
+[ ] Verification status works
+[ ] Net detection works
+[ ] Incomplete nets are handled safely
+[ ] No hallucinated traces
+[ ] Duplicate protection works
+[ ] Technician edits work
+[ ] Technician verification works
+[ ] JSON backup works
+[ ] JSON restore works
+[ ] Browser reload works
+[ ] API key is server-side only
+[ ] `.env.example` exists
+[ ] `pnpm typecheck` passes
+[ ] `pnpm build` passes
+[ ] Production environment configuration documented
+[ ] Health endpoint reports provider state
+
+---
+
+51. IMPORTANT FINAL RULE
+
+Do not tell the user that the PCB scanner is "AI-powered" merely because an endpoint exists.
+
+It is AI-powered only when:
+
+image
+→ provider
+→ actual model response
+→ validated JSON
+→ normalized result
+→ DetectedComponent/ElectricalNet
+→ UI
+
+is actually functioning.
+
+If any stage fails, show the failure honestly and preserve manual review.
+
+---
+
+52. FINAL OUTPUT REQUIRED FROM THE CODING AGENT
+
+After implementing the changes, report:
+
+1. Files created
+2. Files modified
+3. Dependencies added
+4. Environment variables required
+5. Provider currently selected
+6. Typecheck result
+7. Build result
+8. Image-analysis test result
+9. Deployment instructions
+10. Known limitations
+
+Do not claim deployment succeeded unless the deployment actually succeeded.
+
+Do not claim AI recognition works unless an actual image was sent to the configured provider and a valid structured result was returned.
+
+The final application must remain usable even without AI through the existing manual-review workflow.

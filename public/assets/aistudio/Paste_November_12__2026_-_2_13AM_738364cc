@@ -1,0 +1,895 @@
+I recommend repairing your existing AutoTech Virtual Lab Pro rather than generating a completely new application.
+
+That way, you keep your existing design, automotive instruments, wiring canvas, ECU pins, PCB scanner, and features while Google AI Studio rebuilds the weak parts properly.
+
+One important distinction: a single prompt cannot reliably contain the complete corrected code for all 42 repository files. The better approach is to give Google AI Studio your original ZIP and a detailed engineering instruction that makes it modify the actual project, file by file, and verify the result.
+
+I'll give you a master prompt designed to prevent AI Studio from simply redesigning the interface or pretending that the simulator is fixed.
+
+### Step 1 — Prepare your project
+
+* Open [Google AI Studio](https://aistudio.google.com/?utm_source=chatgpt.com).
+
+* Open Build mode.
+
+* Create or open a coding workspace.
+
+* Import or provide the contents of `AutoTech-Vertual-Lab-Pro-main.zip` to the workspace.
+
+* Make sure the original source files are available to the coding agent.
+
+* Keep an untouched backup of your original ZIP.
+
+Do not start by asking it to generate a new app. We want it to repair the existing application.
+
+### Step 2 — Copy this master engineering prompt
+
+Copy the entire prompt below into Google AI Studio.
+
+# MASTER ENGINEERING PROMPT
+## AUTOTECH VIRTUAL LAB PRO — COMPLETE REPAIR, REBUILD AND QUALITY ASSURANCE
+
+You are acting as a senior automotive electrical engineer, senior full-stack developer, circuit simulation engineer, software architect, cybersecurity engineer, and QA automation engineer.
+
+Your assignment is to completely audit, repair, improve, and finish the existing AutoTech Virtual Lab Pro project.
+
+IMPORTANT: You have been given an existing project. You must work on the existing source code. Do not discard the project and generate an unrelated replacement.
+
+## 1. PRIMARY OBJECTIVE
+
+Transform the existing AutoTech Virtual Lab Pro into a reliable, professional automotive electrical training and diagnostic simulation platform.
+
+The application must have:
+
+- A functional automotive electrical simulation engine.
+- Physically consistent electrical calculations within the supported model.
+- A functional ECU pin simulator.
+- A functional wiring and circuit-building environment.
+- Realistic digital multimeter measurements.
+- A functional oscilloscope with dynamically generated signals.
+- A realistic bench power supply.
+- Functional fault injection.
+- A PCB and schematic image analysis system.
+- Validated AI-assisted component recognition.
+- A reliable backend.
+- Responsive desktop, tablet, and mobile interfaces.
+- Proper error handling and automated testing.
+
+Preserve the existing visual identity and useful functionality.
+
+Do not sacrifice engineering accuracy for visual effects.
+
+## 2. FIRST: INSPECT THE ENTIRE EXISTING PROJECT
+
+Before changing any files:
+
+1. Read package.json.
+2. Read all TypeScript and TSX files.
+3. Read all JavaScript files.
+4. Inspect the server implementation.
+5. Inspect the circuit solver.
+6. Inspect the ECU types.
+7. Inspect all instrument components.
+8. Inspect the wiring canvas.
+9. Inspect the scanner.
+10. Inspect AI provider integrations.
+11. Inspect CSS and responsive behavior.
+12. Inspect all configuration files.
+13. Identify unused, duplicated, outdated, or conflicting code.
+
+Create an internal dependency map.
+
+Identify which components depend on the current circuit solver.
+
+Do not start deleting or rewriting files before understanding their dependencies.
+
+Produce a list of identified defects and a repair plan.
+
+Then proceed with implementation. Do not stop after producing the plan.
+
+## 3. ELECTRICAL SIMULATION ENGINE — HIGHEST PRIORITY
+
+Completely replace the current heuristic-based circuit calculations with a proper electrical simulation architecture.
+
+Create a dedicated simulation engine.
+
+Suggested modules:
+
+src/simulation/
+- engine/
+- electrical/
+- components/
+- topology/
+- faults/
+- instruments/
+- signals/
+- diagnostics/
+- tests/
+
+Implement DC circuit simulation using modified nodal analysis or another mathematically sound nodal-analysis approach.
+
+Support:
+
+- Electrical nodes.
+- Ground references.
+- Voltage sources.
+- Current sources.
+- Resistors.
+- Series circuits.
+- Parallel circuits.
+- Combined circuits.
+- Switches.
+- Fuses.
+- Relays.
+- Diodes.
+- LEDs.
+- Sensor models.
+- Loads.
+- Wire resistance.
+- Internal source resistance.
+- Open circuits.
+- Short circuits.
+- High-resistance connections.
+
+Use actual circuit topology.
+
+Do not calculate current using special-case wire IDs.
+
+Do not assign fixed current values to specific wire IDs.
+
+Do not assign arbitrary voltages based on component names.
+
+Use Kirchhoff's current law and voltage law.
+
+Use Ohm's law:
+
+V = I × R
+
+Calculate equivalent resistance from the actual circuit network.
+
+Implement a robust numerical solver with:
+- Matrix construction.
+- Matrix solution.
+- Singular matrix detection.
+- Floating-node detection.
+- Convergence checks.
+- Numerical tolerances.
+- Clear solver error reporting.
+
+Use SI units internally.
+
+Use explicit engineering units in the user interface.
+
+IMPORTANT: Never silently return fabricated measurements when a circuit cannot be solved.
+
+Display an appropriate error or undefined measurement.
+
+## 4. AUTOMOTIVE COMPONENT MODELS
+
+Implement realistic but appropriately simplified automotive electrical models.
+
+Include:
+
+### TPS
+- 5 V reference supply.
+- Sensor ground.
+- Signal output.
+- Configurable potentiometer position.
+- Typical operating range around 0.5–4.5 V.
+- Open-circuit faults.
+- Short-to-ground faults.
+- Short-to-battery faults.
+- Sensor ground resistance faults.
+
+### Engine coolant temperature sensor
+- NTC thermistor model.
+- Temperature-dependent resistance.
+- Configurable pull-up resistor.
+- Temperature-dependent output voltage.
+- Open and short faults.
+
+### Crankshaft position sensor
+- Hall-effect model.
+- Variable reluctance model.
+- RPM-dependent frequency.
+- Configurable tooth pattern.
+- Missing-tooth behavior.
+- Signal amplitude and timing.
+
+### Camshaft position sensor
+- Hall-effect switching.
+- Synchronization with crankshaft position.
+- Configurable phase relationship.
+
+### Fuel injector
+- Coil resistance.
+- Inductance.
+- Driver switching.
+- PWM control.
+- Flyback behavior.
+- Current waveform.
+- Open and short faults.
+
+### Ignition coil
+- Primary winding.
+- Secondary behavior where supported.
+- Switching driver.
+- Dwell time.
+- Inductive energy storage.
+- Simplified flyback behavior.
+
+### Relay
+- Coil resistance.
+- Energization.
+- Contact state.
+- Normally open and normally closed contacts.
+
+### CAN bus
+- CAN-H and CAN-L.
+- Recessive and dominant states.
+- Differential voltage.
+- Two 120-ohm termination resistors.
+- Open termination faults.
+- Short-to-ground faults.
+- Short-to-battery faults.
+- Bus resistance measurements.
+
+Clearly distinguish educational approximations from fully validated OEM specifications.
+
+Do not claim that simplified models reproduce every real ECU behavior.
+
+## 5. FAULT INJECTION ENGINE
+
+Rewrite fault injection so faults modify the actual circuit model.
+
+Support:
+
+- Open circuit.
+- Short to ground.
+- Short to battery.
+- Increased wire resistance.
+- Poor ground.
+- Corroded connector.
+- Blown fuse.
+- Stuck relay.
+- Sensor failure.
+- Intermittent connection.
+- Multiple simultaneous faults.
+
+When a fault is applied:
+
+1. Modify the actual circuit model.
+2. Recalculate the circuit.
+3. Update voltage readings.
+4. Update current readings.
+5. Update resistance measurements where appropriate.
+6. Update oscilloscope signals.
+7. Update diagnostic results.
+8. Show affected circuit locations.
+
+Removing a fault must restore the original component parameters.
+
+Multiple faults must not overwrite one another.
+
+Create repeatable fault scenarios for testing.
+
+## 6. DIGITAL MULTIMETER
+
+Rebuild the DMM so it measures the actual simulation state.
+
+Implement:
+
+- DC voltage.
+- AC voltage where time-domain signals are available.
+- Resistance.
+- Continuity.
+- Diode test.
+- Frequency.
+- Duty cycle.
+- Min/max.
+- Hold.
+- Auto-ranging.
+- Manual ranging.
+
+Resistance measurements must use a proper equivalent-resistance calculation with the appropriate source-isolation assumptions.
+
+Continuity must use a configurable threshold.
+
+Diode testing must use an actual diode model.
+
+Do not determine diode results from terminal names.
+
+Handle disconnected probes, invalid measurements, overloaded ranges, and floating circuits.
+
+Show units and reasonable precision.
+
+## 7. OSCILLOSCOPE
+
+Completely rebuild the waveform source.
+
+The oscilloscope must receive signals from the simulation engine rather than displaying independent hardcoded waveforms.
+
+Implement:
+
+- Time-domain signal generation.
+- Simulation clock.
+- Sample rate.
+- Time base.
+- Voltage scale.
+- Trigger level.
+- Trigger slope.
+- Channel A and B.
+- Channel enable/disable.
+- Signal history.
+- Peak-to-peak voltage.
+- Frequency.
+- Duty cycle.
+- RMS voltage.
+- Measurement cursors.
+
+Support automotive waveforms for:
+
+- Crankshaft sensors.
+- Camshaft sensors.
+- TPS.
+- Injector control.
+- Ignition primary.
+- CAN-H.
+- CAN-L.
+- Charging system ripple.
+- Alternator output.
+
+Waveforms must change when the user changes RPM, throttle position, sensor parameters, wiring, or faults.
+
+Remove Math.random-based measurement behavior.
+
+If noise is simulated, use a configurable and reproducible noise model.
+
+Do not display a fixed frequency when the actual simulation frequency changes.
+
+## 8. BENCH POWER SUPPLY
+
+Implement a proper configurable source model.
+
+Support:
+
+- Adjustable voltage.
+- Current limit.
+- Output enable.
+- Reverse polarity protection.
+- Short-circuit behavior.
+- Output resistance.
+- Current display.
+- Power calculation.
+- Overcurrent indication.
+
+The power supply must interact with the circuit solver.
+
+Do not simulate current limiting by arbitrarily scaling every node voltage.
+
+Use a mathematically appropriate source constraint or a documented approximation.
+
+Make displayed limits match actual input limits.
+
+## 9. WIRING CANVAS
+
+Preserve the existing interactive wiring canvas.
+
+Improve:
+
+- Pin selection.
+- Wire creation.
+- Wire deletion.
+- Wire cutting.
+- Wire restoration.
+- Component connections.
+- Zoom.
+- Pan.
+- Selection.
+- Visual feedback.
+- Connection validation.
+- Mobile interaction.
+
+Every valid wire must correspond to an actual electrical connection in the simulation topology.
+
+Prevent invalid terminal IDs.
+
+Prevent duplicate connections where inappropriate.
+
+Show disconnected pins and open circuits.
+
+Update the electrical simulation after every relevant wiring change.
+
+## 10. PCB AND SCHEMATIC SCANNER
+
+Improve the existing scanner without removing useful functionality.
+
+Implement:
+
+- Image upload.
+- Image preview.
+- Image type validation.
+- Image size validation.
+- Region selection.
+- Component recognition.
+- Reference designator recognition.
+- Component classification.
+- Pin recognition.
+- Trace recognition.
+- Net identification.
+- Bounding box validation.
+- Coordinate normalization.
+- Confidence reporting.
+
+AI analysis must return structured data.
+
+Use Zod or an equivalent schema validator.
+
+Validate:
+- Component IDs.
+- Component types.
+- Reference designators.
+- Coordinates.
+- Bounding boxes.
+- Pins.
+- Connections.
+- Confidence values.
+- Required fields.
+
+Never assume AI-generated connections are electrically verified.
+
+Clearly distinguish:
+
+1. AI detected.
+2. User reviewed.
+3. Technician verified.
+4. Confirmed by an authoritative schematic.
+
+Preserve the manual analysis fallback.
+
+If an AI provider is unavailable, show a useful manual-review state.
+
+Do not invent component connections when the image is unclear.
+
+## 11. AI PROVIDER INTEGRATION
+
+Improve Gemini and OpenAI provider implementations.
+
+Requirements:
+
+- Correct image MIME detection.
+- Correct base64 processing.
+- Input validation.
+- Output validation.
+- Structured JSON.
+- Error handling.
+- Request timeouts.
+- Safe retry behavior.
+- Provider selection.
+- Manual fallback.
+
+Use environment variables for API credentials.
+
+Never expose API keys in frontend code.
+
+Never hardcode secrets.
+
+Do not log API keys or complete sensitive request payloads.
+
+Use the currently supported SDK methods.
+
+Do not invent SDK methods.
+
+## 12. BACKEND SECURITY
+
+Improve server.ts.
+
+Implement:
+
+- Request validation.
+- Image MIME validation.
+- Decoded image size limits.
+- Rate limiting.
+- Request timeouts.
+- Safe error messages.
+- Controlled CORS configuration where necessary.
+- Security headers.
+- Proper HTTP status codes.
+- Structured server logging.
+- Health checks.
+- Graceful shutdown.
+
+Avoid exposing internal stack traces to clients.
+
+Do not report AI provider readiness merely because an API key exists.
+
+Separate:
+- Server availability.
+- Provider configuration.
+- Provider connectivity.
+- Provider operational status.
+
+Remove or consolidate the duplicate server.js implementation if it is not required.
+
+Do not create conflicting production entry points.
+
+## 13. FRONTEND ARCHITECTURE
+
+Preserve the existing AutoTech visual identity.
+
+Maintain the professional automotive laboratory appearance.
+
+Improve:
+
+- Component separation.
+- State management.
+- TypeScript safety.
+- Loading indicators.
+- Error states.
+- Empty states.
+- Notifications.
+- Accessibility.
+- Responsive design.
+- Keyboard navigation.
+- Touch controls.
+
+Make the application usable on:
+
+- Desktop computers.
+- Laptops.
+- Tablets.
+- Android phones.
+- iPhones.
+
+Do not shrink desktop controls until they become unusable on mobile.
+
+Use responsive layouts.
+
+Preserve existing working features.
+
+## 14. PROJECT MANAGEMENT AND DATA PERSISTENCE
+
+Add a project state system.
+
+Allow users to:
+
+- Create a simulation.
+- Save a simulation.
+- Load a simulation.
+- Reset a simulation.
+- Export a simulation.
+- Import a simulation.
+- Save wiring configurations.
+- Save fault scenarios.
+- Save measurement results.
+
+Use versioned JSON data structures.
+
+Validate imported project data.
+
+Do not execute imported content as code.
+
+Use local persistence initially unless a properly secured backend database is justified.
+
+Do not pretend data is saved if persistence fails.
+
+## 15. AUTOMOTIVE DIAGNOSTIC SYSTEM
+
+Create a diagnostic layer that evaluates actual simulated measurements.
+
+Support:
+
+- Expected values.
+- Actual values.
+- Measurement tolerances.
+- Diagnostic conditions.
+- Fault signatures.
+- Probable causes.
+- Recommended tests.
+- Repair guidance.
+
+Provide educational DTC examples where appropriate.
+
+Never claim that an educational simulated diagnosis is an official OEM diagnostic result.
+
+Show the evidence supporting each diagnosis.
+
+Do not produce a definitive diagnosis when the measurements are insufficient.
+
+## 16. AUTOMATED TESTING
+
+Create a proper test suite.
+
+Use Vitest or an appropriate compatible testing framework.
+
+Test the electrical engine independently.
+
+Required tests include:
+
+- Ohm's law.
+- Series resistance.
+- Parallel resistance.
+- Voltage divider.
+- Kirchhoff current law.
+- Kirchhoff voltage law.
+- Open circuit.
+- Short circuit.
+- Increased resistance.
+- Ground fault.
+- Battery short.
+- Relay operation.
+- Diode behavior.
+- Fuse behavior.
+- TPS output.
+- ECT output.
+- Injector current.
+- CAN termination.
+- DMM measurements.
+- Oscilloscope frequency.
+- Fault removal.
+- Multiple simultaneous faults.
+
+Include known expected numerical results.
+
+Use tolerances appropriate to numerical simulation.
+
+Add integration tests to confirm that changing wiring or injecting faults updates the instruments.
+
+Add frontend tests for critical interactions.
+
+## 17. DEPENDENCIES AND BUILD
+
+Inspect package.json and the lockfile.
+
+Use compatible dependency versions.
+
+Avoid unnecessary dependency upgrades.
+
+Do not upgrade every package blindly.
+
+Add appropriate test scripts.
+
+Ensure these commands work:
+
+npm install
+npm run lint
+npm run test
+npm run build
+npm start
+
+If the project uses Bun, preserve a consistent Bun workflow as an alternative.
+
+Fix TypeScript errors rather than hiding them.
+
+Do not disable strict checking just to make the project pass.
+
+Do not use @ts-ignore to conceal defects.
+
+Do not leave unfinished TODOs in critical simulation code.
+
+## 18. VISUAL QUALITY
+
+The application must remain a professional automotive electrical lab.
+
+Preserve:
+- Existing dark laboratory theme.
+- Instrument panels.
+- ECU pin layout.
+- Wiring canvas.
+- Scanner interface.
+- Power supply.
+- Multimeter.
+- Oscilloscope.
+- Fault injector.
+
+Improve visual consistency and usability.
+
+Do not replace the interface with a generic dashboard.
+
+All controls must actually work.
+
+Do not create buttons that only look functional.
+
+## 19. DEVELOPMENT RULES
+
+These rules are mandatory:
+
+1. Work on the actual existing project.
+2. Do not produce a superficial rewrite.
+3. Do not delete existing working features.
+4. Do not fabricate successful tests.
+5. Do not hardcode measurements to imitate a real simulator.
+6. Do not leave critical features as visual placeholders.
+7. Do not expose API credentials.
+8. Do not silently ignore errors.
+9. Do not claim production readiness without evidence.
+10. Do not stop after writing a plan.
+11. Do not replace real calculations with arbitrary constants.
+12. Do not sacrifice existing functionality to simplify development.
+
+If a feature cannot be fully implemented within the current architecture, explain the limitation and implement the strongest correct supported version.
+
+## 20. IMPLEMENTATION ORDER
+
+Work in these phases.
+
+PHASE 1:
+- Full source audit.
+- Dependency mapping.
+- Defect identification.
+- Architecture plan.
+
+PHASE 2:
+- Electrical simulation engine.
+- Component models.
+- Circuit topology.
+- Numerical solver.
+
+PHASE 3:
+- Fault injection.
+- Wiring integration.
+- DMM calculations.
+- Power supply calculations.
+
+PHASE 4:
+- Time-domain signal engine.
+- Oscilloscope integration.
+- Automotive waveforms.
+
+PHASE 5:
+- PCB scanner.
+- AI validation.
+- Backend security.
+- Provider improvements.
+
+PHASE 6:
+- Frontend improvements.
+- Responsive behavior.
+- Project persistence.
+- Diagnostic engine.
+
+PHASE 7:
+- Automated tests.
+- TypeScript verification.
+- Production build.
+- Runtime verification.
+
+Do not skip phases.
+
+After each phase, verify the changed modules before proceeding.
+
+## 21. FINAL ACCEPTANCE CRITERIA
+
+The project is not complete until:
+
+- All major existing features remain available.
+- The electrical solver passes numerical tests.
+- Measurements use actual simulated circuit values.
+- Fault injection changes the actual circuit.
+- Removing a fault restores the original state.
+- Oscilloscope signals reflect simulation changes.
+- The power supply interacts correctly with circuit calculations.
+- Invalid AI output is rejected safely.
+- Backend validation works.
+- API credentials remain server-side.
+- Responsive layouts work.
+- No unresolved critical TypeScript errors remain.
+- Automated tests pass.
+- Production build succeeds.
+
+## 22. FINAL REPORT
+
+At completion, provide:
+
+1. Summary of changes.
+2. List of modified files.
+3. List of newly created files.
+4. Deleted files and reasons.
+5. Electrical simulation capabilities implemented.
+6. Security improvements.
+7. AI integration improvements.
+8. Test results.
+9. Build results.
+10. Remaining limitations.
+11. Deployment instructions.
+12. Environment variables required.
+
+For every claimed successful test, provide the actual command and result.
+
+If a test was not run, explicitly say NOT RUN.
+
+If a feature is only approximated, explicitly say APPROXIMATED.
+
+If a feature is incomplete, explicitly say INCOMPLETE.
+
+Do not claim that all work is complete until all acceptance criteria have been checked.
+
+YOUR FINAL OBJECTIVE:
+
+Deliver a working, maintainable, educational automotive electrical simulation application that is technically honest, mathematically consistent within its documented models, secure, testable, and ready for further professional development.
+
+START BY INSPECTING THE EXISTING PROJECT, THEN IMPLEMENT THE REPAIRS. DO NOT STOP AT THE PLANNING STAGE.
+
+### Step 3 — Make Google AI Studio work in controlled stages
+
+Don't rely on one enormous generation response. Once the master prompt is submitted, use these additional instructions one at a time.
+
+Stage 1 — Audit and preserve
+
+Before code changes
+
+Submit after the master prompt if AI Studio has not yet produced a file inventory.
+
+Before making changes, inspect every source file and produce a complete project inventory and dependency map. Identify the existing functionality that must be preserved. Identify conflicting files, broken imports, simulation defects, and architectural risks. Create a repair checklist. Do not delete files or change the interface yet. Then proceed with the implementation phases in the master instructions.
+
+Stage 2 — Electrical engine
+
+Most important
+
+Now implement and verify the electrical simulation engine first. Replace hardcoded wire-specific and component-specific measurements with actual circuit topology and nodal analysis. Implement voltage sources, resistors, current sources, grounding, switches, diodes, and automotive component models. Add numerical tests with known answers. Do not proceed until the solver's basic electrical tests pass. Report any approximations clearly.
+
+Stage 3 — Connect all instruments
+
+Integrate the new simulation engine with the existing WiringCanvas, FaultInjector, DigitalMultimeter, BenchPowerSupply, and Oscilloscope. Ensure every instrument reads from the same simulation state. Changing a wire, component, voltage, RPM, throttle position, or injected fault must update all dependent measurements and waveforms. Remove disconnected hardcoded measurement logic. Test the complete integration.
+
+Stage 4 — Security and scanner
+
+Now repair the backend, Gemini integration, OpenAI integration, and PCB/Schematic scanner. Add strict runtime schemas, image validation, MIME detection, request limits, rate limiting, safe timeouts, secure API key handling, and manual fallback. Never mark AI-detected components or traces as technician verified. Add tests for malformed AI responses and invalid image uploads.
+
+Stage 5 — Final quality assurance
+
+Final verification
+
+Perform a complete final quality assurance pass on the entire application. Install dependencies, run TypeScript checks, execute all automated tests, build the production application, and test the server startup. Fix every error you can reproduce. Check desktop, tablet, and mobile layouts. Verify that the existing features still work. Produce a file-by-file change report and list every test with its actual result. Do not report a successful build or test unless it was actually executed successfully.
+
+### Step 4 — Important instructions while AI Studio is working
+
+These are the rules I recommend following:
+
+| Situation                             | What to do                                                  |
+| ------------------------------------- | ----------------------------------------------------------- |
+| AI Studio wants to replace everything | Tell it to preserve existing functionality                  |
+| It produces only explanations         | Tell it to edit the actual project files                    |
+| It stops after one phase              | Tell it to continue with the next incomplete phase          |
+| It reports tests passed               | Ask for actual test output                                  |
+| It uses hardcoded values              | Reject the implementation and request physical calculations |
+| It removes an existing feature        | Request restoration and integration                         |
+| It encounters token limits            | Continue phase by phase, preserving the project state       |
+
+Very important: Keep a backup after each successful phase. Do not overwrite your original project until the final build and tests have passed.
+
+### Step 5 — What the finished application should achieve
+
+![Reparatii Calculatoare Auto – ECU, EDC, PCM, Servodirectie](https://images.openai.com/static-rsc-4/foqEBTN_XC-9QZ-2hyfypBIOnEf1WogMcMHZTvQYEhvMq1VYUHiuSGdbi22AYiEY01WaSlWfgj-ngHXmRgj65i975lKvqz9BJfEA0hru9gmdoOvixX3gXQ6-LiJ0Ip2zszqF6ODfxEfNgJ6YwkS08_pMFhGN5VU0Y28YDfC4BEu6T2q23AgXRX1EN52cZPVG?purpose=fullsize)
+
+Accurate electrical measurements
+
+Voltage, current, resistance, continuity, frequency and diode testing.
+
+![Difficulty Starting, Rough Idle, Cam Position Or Misfire DTCs P0340, P0341, P0345, P0346, P0365, P0366, P0390, P0391, P0301, P0302, P0303 Or P0304 - 2011-2014 Subaru](https://images.openai.com/static-rsc-4/o0k1yCJHbD5Wm2oHM7yaYLQqMuwqG-nWisUg5oejy59WHta_Kn4UKB15AKNxUiKl3L3zHmt6jfNNybdvo-Y2fXU_2vx8OwZ85VT4P9bypl4GJC4AUnNs_fzRmA9D9fiv-oLsFjjcBYrKmZjFYuB2C4kccbWkXlT5ZJnN947Pq4hy2e1CPKxerHy3Zrm8vXc-?purpose=fullsize)
+
+Live automotive waveforms
+
+Real-time changes based on RPM, sensors, loads and faults.
+
+![Centro de Tecnologia Veicular e Biocombustíveis | Bosch no Brasil](https://images.openai.com/static-rsc-4/utq6pmxDA0WTB0O75as-bglcuyH7szQSHDnbTCKwsbOF-CPNjRs0bRqnQYmZSd8boyZuXSaJ8IY6ubmena-PW4FOo9vzc4KTDVxtSwfT9yyYF4IwjB5DuoNBXPo0EF_5XMkWfegvXcBpwFLf2-KuGvjB9jQMytmv9NQlvvcKuWb0VwyaaZ7kCQNr07cDV5sa?purpose=fullsize)
+
+Interactive circuit laboratory
+
+Build circuits, inject faults and measure actual electrical behavior.
+
+![ECU Software](https://images.openai.com/static-rsc-4/yFIr_lmyQ4WkXTxncjQPdCFecWPo02wQ_P8yt1_i7BP_qBb4c15pbiGoe3bPajeOtnT7g1sA88iVrYB28EOWFxTmLDghucXcLPFKruufLj1oIF1MTSnyn4hRY4unhZ45ujnN11olGC2sxn5hO04BTHT4ippf3YzJd4W-YSTMk1wK_oTQrd2Kr6VP34H_uVtK?purpose=fullsize)
+
+AI-assisted PCB inspection
+
+Detect components and traces with confidence scores and technician verification.
+
+### My final recommendation
+
+There is one thing I particularly want you to avoid: allowing Google AI Studio to make AutoTech look finished while leaving its electrical calculations inaccurate.
+
+A good-looking automotive simulator is easy to generate. A simulator that correctly calculates voltage, resistance, current, sensor outputs, fault conditions, and waveforms is considerably harder.
+
+Prioritize mathematical accuracy, then instrument integration, then AI features and visual polish.
+
+When Google AI Studio finishes, upload its updated ZIP here. I can independently inspect the new code, compare it against the original, and check whether it actually fixed the problems rather than merely claiming success.

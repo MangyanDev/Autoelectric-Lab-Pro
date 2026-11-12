@@ -1,0 +1,61 @@
+====================================================================
+HITACHI MEC11-251 ECU BENCH TESTING & PINOUT DIAGRAM
+====================================================================
+Target Vehicle Line: Nissan Sentra/Sunny/Almera (N16 Series)
+Communication Protocol: K-Line (ISO-9141)
+Diagnostic Tool: Ancel V7 HD (or equivalent OBD2 Scanner)
+
+--------------------------------------------------------------------
+CONNECTOR ORIENTATION & IDENTIFICATION
+--------------------------------------------------------------------
+When looking directly inside the pin side of the empty ECU plug chamber 
+with the guide slots / locking tabs facing up:
+
+- The connector is split into three main horizontal rows.
+- Numbering follows sequential order per block from top-left.
+
+--------------------------------------------------------------------
+CRITICAL BENCH PIN CONNECTIONS
+--------------------------------------------------------------------
+Connect your jumper lines exactly as mapped below:
+
+1. ECU Pin 67  -->  Constant +12V Power (Battery Positive)
+2. ECU Pin 36  -->  Ignition Switch Input (+12V via an Inline Toggle)
+3. ECU Pin 48  -->  Ground (Battery Negative & OBD2 Pins 4 and 5)
+4. ECU Pin 88  -->  K-Line Diagnosis Data (OBD2 Pin 7)
+
+*Note: Alternatively, Pin 57 can be used as your main chassis Ground instead of Pin 48.
+
+--------------------------------------------------------------------
+OBD2 FEMALE HARNESS / DIAGNOSTIC BREAKOUT BOX ROUTING
+--------------------------------------------------------------------
+Route the respective jumper wires coming from the ECU into your OBD2 
+socket pins where your Ancel V7 HD scanner plugs in:
+
+OBD2 Pin #    | Wire Target (Source)
+--------------|-----------------------------------------------------
+Pin 4 & 5     | Connect to ECU Ground [Pin 48 / 57] & Battery (-)
+Pin 7         | Connect directly to ECU K-Line Data [Pin 88]
+Pin 16        | Connect to +12V Fused Battery Positive (+)
+
+--------------------------------------------------------------------
+⚠️ BENCH SAFETY REQUIREMENTS
+--------------------------------------------------------------------
+- FUSE PROTECTION: Install an inline 5-Amp or 10-Amp fuse on the positive
+  lead wire extending directly from your car battery before splitting 
+  it off to the ECU's power input pins (Pins 67 & 36).
+- INSULATION: Use high-quality female micro-pin sleeves to connect 
+  to the gold ECU male pins. Ensure adjacent jumpers cannot make contact 
+  with each other, which will short out the internal electronics.
+
+--------------------------------------------------------------------
+BENCH WAKEUPS AND TEST PROCEDURE
+--------------------------------------------------------------------
+1. Ensure all manual connections match the configuration map above.
+2. Hook up your fused leads safely to the 12V car battery terminals.
+3. Switch on the power to Pin 36 (Ignition switch state) to trigger 
+   the internal processor's main relay logic.
+4. Insert your Ancel V7 HD diagnostic interface into the wired OBD2 socket.
+5. Manually configure your scanner app to select: 
+   Nissan -> Manual Diagnosis -> Sentra/Almera/Sunny (N16 Engine Controls).
+====================================================================
