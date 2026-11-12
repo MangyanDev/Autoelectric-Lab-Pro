@@ -529,17 +529,17 @@ export const SchematicPcbScanner: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-950 border border-slate-800 rounded-xl overflow-hidden text-slate-100 shadow-sm font-mono select-none">
+    <div className="flex-1 flex flex-col hud-panel rounded-xl overflow-hidden text-slate-100 font-mono select-none">
       {/* Top Banner Toolbar */}
-      <div className="flex flex-wrap items-center justify-between border-b border-slate-800 p-2.5 bg-slate-900 text-xs gap-2">
+      <div className="flex flex-wrap items-center justify-between border-b border-cyan-500/15 p-2.5 hud-header text-xs gap-2">
         <div className="flex items-center gap-3">
           <img
             src="/assets/aistudio/file_0000000098d48211abb177ce752b7b0e_62980da7.png"
             alt="AutoElectric Lab Pro Official Logo"
             className="h-7 w-auto object-contain rounded border border-cyan-500/40 shadow-sm"
           />
-          <span className="font-bold text-slate-100 tracking-wide whitespace-nowrap">
-            PCB VISION & AUTO TRACK MAPPER
+          <span className="text-sm font-hud font-bold text-slate-100 tracking-wider uppercase whitespace-nowrap">
+            PCB Vision & Auto Track Mapper
           </span>
           <span className="text-slate-600 hidden sm:inline">|</span>
           <span className="text-[11px] text-cyan-300 truncate max-w-[340px] font-sans">{statusMessage}</span>
@@ -618,11 +618,11 @@ export const SchematicPcbScanner: React.FC = () => {
       {/* Main Dual Workspace: Interactive PCB Canvas Left + Component Inspector Right */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
         {/* Left: Interactive Canvas */}
-        <div className={`flex-1 relative bg-[#070b12] border-r border-slate-800 flex-col overflow-hidden ${
+        <div className={`flex-1 relative hud-blueprint-grid border-r border-cyan-500/15 flex-col overflow-hidden ${
           mobileTab === 'CANVAS' ? 'flex' : 'hidden md:flex'
         }`}>
           {/* HUD Layer Controls */}
-          <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur border border-slate-800 p-1 rounded-lg text-[11px] text-slate-300 shadow-md">
+          <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 hud-panel p-1 rounded-lg text-[11px] text-slate-300">
             <button
               onClick={() => setShowComponents(!showComponents)}
               className={`px-2 py-0.5 rounded flex items-center gap-1 transition ${
@@ -653,7 +653,7 @@ export const SchematicPcbScanner: React.FC = () => {
           </div>
 
           {/* Zoom controls */}
-          <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 bg-slate-900/90 backdrop-blur border border-slate-800 p-1 rounded-lg shadow-md">
+          <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 hud-panel p-1 rounded-lg">
             <button
               onClick={() => setZoomLevel(prev => Math.max(0.7, prev - 0.1))}
               className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"

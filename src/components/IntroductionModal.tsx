@@ -24,27 +24,28 @@ export const IntroductionModal: React.FC<IntroductionModalProps> = ({ isOpen, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-mono select-none animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl bg-slate-950 border-2 border-cyan-500/70 rounded-2xl shadow-[0_0_50px_rgba(6,182,212,0.3)] overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="relative w-full max-w-4xl hud-panel rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Top Header Banner with Logo & Badges */}
-        <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 p-6 border-b border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
+        <div className="hud-header p-6 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-4">
             <img
               src="/assets/aistudio/file_0000000098d48211abb177ce752b7b0e_62980da7.png"
               alt="AutoElectric Lab Pro Official Logo"
-              className="h-16 md:h-20 w-auto object-contain rounded-xl border border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.4)]"
+              className="h-16 md:h-20 w-auto object-contain rounded-xl border border-cyan-500/40"
             />
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-950 border border-cyan-600 text-cyan-300 tracking-wider">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-950/80 border border-cyan-600/70 text-cyan-300 tracking-wider">
                   OFFICIAL ENTERPRISE EDITION
                 </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 border border-amber-600 text-amber-300 tracking-wider">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/80 border border-amber-600/70 text-amber-300 tracking-wider">
                   v2.5 PRO LAB
                 </span>
               </div>
-              <h1 className="text-xl md:text-2xl font-extrabold text-white tracking-wide mt-1">
-                AutoElectric Lab Pro
+              <h1 className="text-2xl md:text-3xl font-hud font-bold tracking-wide mt-1 flex items-baseline gap-1.5">
+                <span className="brand-wordmark-silver">AutoElectric</span>
+                <span className="brand-wordmark-amber">Lab Pro</span>
               </h1>
               <p className="text-xs text-slate-400 font-sans mt-0.5">
                 Your Smart Bench Companion for Automotive Electronics & ECU Diagnostics
@@ -54,7 +55,7 @@ export const IntroductionModal: React.FC<IntroductionModalProps> = ({ isOpen, on
 
           <button
             onClick={onClose}
-            className="w-full md:w-auto px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.5)] transition flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+            className="w-full md:w-auto px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 shrink-0 cursor-pointer"
           >
             <span>Launch Virtual Bench</span>
             <ArrowRight className="w-4 h-4" />

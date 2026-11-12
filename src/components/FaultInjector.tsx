@@ -1,6 +1,6 @@
 import React from 'react';
 import { EcuPin, FaultType, InjectedFault, DiagnosticTroubleCode } from '../types/ecu';
-import { AlertTriangle, ShieldCheck, Trash2, ZapOff, CheckCircle2, Flame, Wrench, Sparkles, Globe } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, Trash2, ZapOff, CheckCircle2, Flame, Wrench, Sparkles, Globe, Activity } from 'lucide-react';
 
 interface FaultInjectorProps {
   pins: EcuPin[];
@@ -44,13 +44,13 @@ export const FaultInjector: React.FC<FaultInjectorProps> = ({
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col gap-3.5 text-slate-100 shadow-sm">
+    <div className="hud-panel rounded-xl p-3.5 flex flex-col gap-3.5 text-slate-100">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+      <div className="flex items-center justify-between border-b border-cyan-500/15 pb-2">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-rose-400" />
-          <span className="text-xs font-mono font-semibold tracking-wider text-slate-200">
-            FAULT INJECTION MATRIX
+          <span className="text-sm font-hud font-bold tracking-wider text-slate-100 uppercase">
+            Fault Injection Matrix
           </span>
         </div>
         {faults.length > 0 && (
@@ -131,7 +131,7 @@ export const FaultInjector: React.FC<FaultInjectorProps> = ({
       </div>
 
       {/* Active Pin Details */}
-      <div className="bg-slate-950 border border-slate-800 p-2 rounded-lg flex items-center justify-between text-xs font-mono">
+      <div className="hud-well p-2 rounded-lg flex items-center justify-between text-xs font-mono">
         <div>
           <span className="text-cyan-400 font-semibold">{currentPin.label}</span>
           <span className="text-slate-400 ml-2">Pin #{currentPin.pinNumber}: {currentPin.name}</span>
@@ -157,8 +157,8 @@ export const FaultInjector: React.FC<FaultInjectorProps> = ({
               }}
               className={`p-2 rounded border text-left flex items-start gap-2 transition ${
                 isActive
-                  ? 'bg-slate-800 border-cyan-500 text-white shadow-sm'
-                  : `bg-slate-950 border-slate-800 text-slate-300 ${opt.color}`
+                  ? 'bg-cyan-950/50 border-cyan-500/70 text-white'
+                  : `bg-slate-950/70 border-slate-800/90 text-slate-300 ${opt.color}`
               }`}
             >
               <div className="mt-0.5">{opt.icon}</div>
@@ -172,10 +172,10 @@ export const FaultInjector: React.FC<FaultInjectorProps> = ({
       </div>
 
       {/* Live ECU OBD-II Diagnostic Trouble Codes */}
-      <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-800">
+      <div className="flex flex-col gap-1.5 pt-1 border-t border-cyan-500/15">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <Activity className="w-3.5 h-3.5 text-amber-400" />
             LIVE OBD-II DTC MONITOR:
           </span>
           <span className="text-[10px] font-mono text-slate-500">{activeDTCs.length} Stored</span>

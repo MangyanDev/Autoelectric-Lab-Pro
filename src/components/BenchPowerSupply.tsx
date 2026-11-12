@@ -44,27 +44,27 @@ export const BenchPowerSupply: React.FC<BenchPowerSupplyProps> = ({
   const powerWatts = powerSupply.isOutputEnabled ? powerSupply.voltageSetting * actualCurrentAmps : 0;
 
   return (
-    <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-lg p-4 flex flex-col gap-4 shadow-sm">
+    <div className="hud-panel text-slate-100 rounded-xl p-3.5 flex flex-col gap-3.5">
       {/* Unit Header */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+      <div className="flex items-center justify-between border-b border-cyan-500/15 pb-2">
         <div className="flex items-center gap-2">
           <Zap className="w-4 h-4 text-amber-400" />
-          <span className="text-xs font-mono font-semibold tracking-wider text-slate-300">
-            BENCH DC POWER SUPPLY
+          <span className="text-sm font-hud font-bold tracking-wider text-slate-100 uppercase">
+            Bench DC Power Supply
           </span>
-          <span className="text-[10px] font-mono text-slate-500">0-30V / 10A</span>
+          <span className="text-[10px] font-mono text-slate-400">0-30V / 10A</span>
         </div>
         <div className="flex items-center gap-2">
           {isTripped && (
-            <span className="flex items-center gap-1 text-[11px] font-mono text-rose-400 bg-rose-950/60 border border-rose-800 px-2 py-0.5 rounded">
+            <span className="flex items-center gap-1 text-[11px] font-mono text-rose-300 bg-rose-950/60 border border-rose-700/70 px-2 py-0.5 rounded">
               <AlertCircle className="w-3 h-3" /> C.C. LIMIT TRIPPED
             </span>
           )}
           <span
             className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
               powerSupply.isOutputEnabled
-                ? 'bg-emerald-950/70 border-emerald-700 text-emerald-400'
-                : 'bg-slate-800 border-slate-700 text-slate-400'
+                ? 'bg-emerald-950/70 border-emerald-600/70 text-emerald-300'
+                : 'bg-slate-900/80 border-slate-700 text-slate-400'
             }`}
           >
             {powerSupply.isOutputEnabled ? 'OUTPUT: ACTIVE' : 'OUTPUT: STANDBY'}
@@ -75,7 +75,7 @@ export const BenchPowerSupply: React.FC<BenchPowerSupplyProps> = ({
       {/* Main Dual LED Telemetry Displays */}
       <div className="grid grid-cols-3 gap-2">
         {/* Voltage Display */}
-        <div className="bg-slate-950 border border-slate-800 p-2.5 rounded flex flex-col justify-between">
+        <div className="hud-well p-2.5 rounded-lg flex flex-col justify-between">
           <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 uppercase">
             <span>Voltage Output</span>
             <span className="text-amber-400 font-semibold">V</span>
@@ -89,7 +89,7 @@ export const BenchPowerSupply: React.FC<BenchPowerSupplyProps> = ({
         </div>
 
         {/* Current Display */}
-        <div className="bg-slate-950 border border-slate-800 p-2.5 rounded flex flex-col justify-between">
+        <div className="hud-well p-2.5 rounded-lg flex flex-col justify-between">
           <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 uppercase">
             <span>Current Draw</span>
             <span className="text-cyan-400 font-semibold">A</span>
@@ -103,7 +103,7 @@ export const BenchPowerSupply: React.FC<BenchPowerSupplyProps> = ({
         </div>
 
         {/* Power Display */}
-        <div className="bg-slate-950 border border-slate-800 p-2.5 rounded flex flex-col justify-between">
+        <div className="hud-well p-2.5 rounded-lg flex flex-col justify-between">
           <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 uppercase">
             <span>Power</span>
             <span className="text-emerald-400 font-semibold">W</span>
@@ -120,7 +120,7 @@ export const BenchPowerSupply: React.FC<BenchPowerSupplyProps> = ({
       {/* Precision Controls */}
       <div className="grid grid-cols-2 gap-3 text-xs">
         {/* Voltage Stepper */}
-        <div className="bg-slate-950/60 border border-slate-800 p-2.5 rounded flex flex-col gap-1.5">
+        <div className="hud-well p-2.5 rounded-lg flex flex-col gap-1.5">
           <label className="text-[11px] font-mono text-slate-400 flex items-center justify-between">
             <span>VOLTAGE ADJUST</span>
             <span className="text-amber-400 font-semibold">{powerSupply.voltageSetting.toFixed(1)} V</span>
@@ -163,7 +163,7 @@ export const BenchPowerSupply: React.FC<BenchPowerSupplyProps> = ({
         </div>
 
         {/* Current Limit Stepper */}
-        <div className="bg-slate-950/60 border border-slate-800 p-2.5 rounded flex flex-col gap-1.5">
+        <div className="hud-well p-2.5 rounded-lg flex flex-col gap-1.5">
           <label className="text-[11px] font-mono text-slate-400 flex items-center justify-between">
             <span>CURRENT LIMIT</span>
             <span className="text-cyan-400 font-semibold">{powerSupply.currentLimit.toFixed(1)} A</span>

@@ -232,13 +232,13 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
   }, [isPowerOn, isRunning, activeSignal, hasCanFault, hasInjectorFault, timeDiv, voltDiv]);
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-slate-100 flex flex-col gap-3 shadow-sm">
+    <div className="hud-panel rounded-xl p-3.5 text-slate-100 flex flex-col gap-3">
       {/* Scope Header */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+      <div className="flex items-center justify-between border-b border-cyan-500/15 pb-2">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-emerald-400" />
-          <span className="text-xs font-mono font-semibold tracking-wider text-slate-200">
-            DIGITAL STORAGE LAB OSCILLOSCOPE
+          <span className="text-sm font-hud font-bold tracking-wider text-slate-100 uppercase">
+            Digital Storage Lab Oscilloscope
           </span>
           <span className="text-[10px] font-mono text-emerald-400 font-bold">2-CH 50MS/s TRUE RMS</span>
         </div>
@@ -278,7 +278,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
         </div>
 
         {/* Live On-Screen Telemetry Strip */}
-        <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-[10px] font-mono text-slate-400 bg-slate-950/85 backdrop-blur px-2.5 py-1 rounded border border-slate-800 pointer-events-none">
+        <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-[10px] font-mono text-slate-400 hud-well px-2.5 py-1 rounded pointer-events-none">
           <div className="flex items-center gap-3">
             <span>Vpp: <strong className="text-cyan-300 font-mono tabular-nums">{measuredVpp}</strong></span>
             <span>Freq: <strong className="text-emerald-300 font-mono tabular-nums">{measuredFreq}</strong></span>
@@ -290,7 +290,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
       </div>
 
       {/* Control Bar & Channel Selector */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono pt-1 border-t border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono pt-1 border-t border-cyan-500/15">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[10px] text-slate-400 uppercase">Input Channel:</span>
           <button
@@ -347,7 +347,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
 
         {/* Scope Scale Controls */}
         <div className="flex items-center gap-3 text-[10px] text-slate-400">
-          <div className="flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded border border-slate-800">
+          <div className="flex items-center gap-1.5 hud-well px-2 py-1 rounded">
             <span>VOLT/DIV:</span>
             <button
               onClick={() => setVoltDiv(v => Math.max(0.5, v - 0.25))}
@@ -364,7 +364,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded border border-slate-800">
+          <div className="flex items-center gap-1.5 hud-well px-2 py-1 rounded">
             <span>TIME/DIV:</span>
             <button
               onClick={() => setTimeDiv(t => Math.max(0.5, t - 0.25))}

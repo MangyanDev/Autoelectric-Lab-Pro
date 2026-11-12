@@ -76,3 +76,47 @@ export function playProbeTapSound() {
     // Audio policy ignore
   }
 }
+
+export function playHoldBeep(isEngaged: boolean) {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioCtx) {
+      audioCtx = new AudioContextClass();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+
+    if (isEngaged) {
+      // Classic 2.4 kHz DMM piezo confirmation chirp when locking HOLD
+      osc.frequency.setValueAtTime(2400, now);
+      gain.gain.setValueAtTime(0.075, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.065);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.065);
+    } else {
+      // Lower 1.75 kHz brief chirp when releasing HOLD back to live tracking
+      osc.frequency.setValueAtTime(1750, now);
+      gain.gain.setValueAtTime(0.055, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.045);
+    }
+  } catch {
+    // Audio policy ignore
+  }
+}
+

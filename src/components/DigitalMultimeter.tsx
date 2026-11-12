@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MultimeterState, MultimeterMode, EcuPin, BenchComponent } from '../types/ecu';
-import { Volume2, AlertTriangle, ArrowLeftRight, X, Disc } from 'lucide-react';
-import { playContinuityBeep } from '../utils/audioFeedback';
+import { Volume2, VolumeX, AlertTriangle, ArrowLeftRight, X, Disc, PauseCircle } from 'lucide-react';
+import { playContinuityBeep, playHoldBeep } from '../utils/audioFeedback';
 
 interface DigitalMultimeterProps {
   multimeter: MultimeterState;
@@ -61,10 +61,35 @@ export const DigitalMultimeter: React.FC<DigitalMultimeterProps> = ({
   components,
 }) => {
   const [hoveredMode, setHoveredMode] = useState<MultimeterMode | null>(null);
+  const [beepEnabled, setBeepEnabled] = useState<boolean>(true);
+  const [heldReading, setHeldReading] = useState<DigitalMultimeterProps['reading'] | null>(null);
+  const [holdGlowActive, setHoldGlowActive] = useState<boolean>(false);
+  const holdGlowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Beep effect
+  // Clean up Hold glow timer on unmount
   useEffect(() => {
-    if (multimeter.isPowered && multimeter.mode === 'CONTINUITY' && reading.shouldBeep) {
+    return () => {
+      if (holdGlowTimerRef.current) {
+        clearTimeout(holdGlowTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Clear latched reading if meter is powered off or HOLD is externally cleared
+  useEffect(() => {
+    if (!multimeter.isPowered || !multimeter.holdValue) {
+      setHeldReading(null);
+    }
+  }, [multimeter.isPowered, multimeter.holdValue]);
+
+  // Continuity beep effect (respects simulated Beep toggle)
+  useEffect(() => {
+    if (
+      multimeter.isPowered &&
+      beepEnabled &&
+      multimeter.mode === 'CONTINUITY' &&
+      reading.shouldBeep
+    ) {
       playContinuityBeep(true);
     } else {
       playContinuityBeep(false);
@@ -73,10 +98,49 @@ export const DigitalMultimeter: React.FC<DigitalMultimeterProps> = ({
     return () => {
       playContinuityBeep(false);
     };
-  }, [multimeter.isPowered, multimeter.mode, reading.shouldBeep]);
+  }, [multimeter.isPowered, multimeter.mode, reading.shouldBeep, beepEnabled]);
+
+  const triggerHoldGlow = () => {
+    setHoldGlowActive(false);
+    requestAnimationFrame(() => {
+      setHoldGlowActive(true);
+    });
+    if (holdGlowTimerRef.current) {
+      clearTimeout(holdGlowTimerRef.current);
+    }
+    holdGlowTimerRef.current = setTimeout(() => {
+      setHoldGlowActive(false);
+    }, 620);
+  };
+
+  const toggleHold = () => {
+    if (!multimeter.isPowered) return;
+    const nextHold = !multimeter.holdValue;
+    if (nextHold) {
+      setHeldReading(reading);
+      triggerHoldGlow();
+    } else {
+      setHeldReading(null);
+    }
+    if (beepEnabled) {
+      playHoldBeep(nextHold);
+    }
+    onChange({ ...multimeter, holdValue: nextHold });
+  };
+
+  const toggleBeep = () => {
+    const nextBeep = !beepEnabled;
+    setBeepEnabled(nextBeep);
+    if (nextBeep && multimeter.isPowered) {
+      playHoldBeep(true);
+    }
+  };
+
+  const displayedReading =
+    multimeter.holdValue && heldReading ? heldReading : reading;
 
   const setMode = (mode: MultimeterMode) => {
-    onChange({ ...multimeter, mode });
+    onChange({ ...multimeter, mode, holdValue: false });
   };
 
   const attachRedProbe = (pinId: string, label: string) => {
@@ -122,20 +186,69 @@ export const DigitalMultimeter: React.FC<DigitalMultimeterProps> = ({
   const activeModeInfo = MODE_EXPLANATIONS[hoveredMode || multimeter.mode];
 
   return (
-    <div className="bg-slate-900 border-2 border-amber-600/40 rounded-xl p-3.5 flex flex-col gap-3 shadow-md text-slate-100">
+    <div className="hud-panel-amber rounded-xl p-3.5 flex flex-col gap-3 text-slate-100">
       {/* Top Brand Banner */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+      <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
         <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-          <span className="font-mono text-xs font-bold tracking-wider text-amber-400">
+          <div className="w-2 h-2 rounded-full bg-amber-400" />
+          <span className="font-hud text-sm font-bold tracking-wider text-amber-300 uppercase">
             AUTO-DMM 88V
           </span>
           <span className="text-[10px] font-mono text-slate-400">AUTOMOTIVE MULTIMETER</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          {/* Simulated Piezo Beep Toggle Button */}
           <button
-            onClick={() => onChange({ ...multimeter, isPowered: !multimeter.isPowered })}
-            className={`px-2 py-0.5 text-[10px] font-mono rounded border transition ${
+            type="button"
+            onClick={toggleBeep}
+            aria-pressed={beepEnabled}
+            title={beepEnabled ? 'Simulated DMM Piezo Beep: ON (Click to Mute)' : 'Simulated DMM Piezo Beep: MUTED (Click to Enable)'}
+            className={`px-2 py-0.5 text-[10px] font-mono rounded border flex items-center gap-1 transition cursor-pointer ${
+              beepEnabled
+                ? 'bg-cyan-950/80 border-cyan-600/70 text-cyan-300 font-semibold hover:bg-cyan-900/70'
+                : 'bg-slate-800/90 border-slate-700 text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {beepEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+            <span>{beepEnabled ? 'BEEP' : 'MUTE'}</span>
+          </button>
+
+          {/* HOLD Latch Button */}
+          <button
+            type="button"
+            onClick={toggleHold}
+            disabled={!multimeter.isPowered}
+            aria-pressed={multimeter.holdValue}
+            title={
+              !multimeter.isPowered
+                ? 'Power ON meter to use HOLD'
+                : multimeter.holdValue
+                ? 'Release HOLD (Resume Live MNA Reading)'
+                : 'Latch Current Reading (HOLD)'
+            }
+            className={`px-2 py-0.5 text-[10px] font-mono rounded border flex items-center gap-1 transition ${
+              !multimeter.isPowered
+                ? 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed'
+                : multimeter.holdValue
+                ? 'bg-amber-500 border-amber-300 text-slate-950 font-black shadow-[0_0_10px_rgba(245,158,11,0.45)] cursor-pointer'
+                : 'bg-slate-800/90 border-slate-700 text-slate-300 hover:border-amber-500/60 hover:text-amber-300 cursor-pointer'
+            }`}
+          >
+            <PauseCircle className="w-3 h-3" />
+            <span>{multimeter.holdValue ? 'HOLD ON' : 'HOLD'}</span>
+          </button>
+
+          {/* Power Switch */}
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                ...multimeter,
+                isPowered: !multimeter.isPowered,
+                holdValue: !multimeter.isPowered ? multimeter.holdValue : false,
+              })
+            }
+            className={`px-2 py-0.5 text-[10px] font-mono rounded border transition cursor-pointer ${
               multimeter.isPowered
                 ? 'bg-emerald-950/80 border-emerald-600 text-emerald-300 font-semibold'
                 : 'bg-slate-800 border-slate-700 text-slate-500'
@@ -147,15 +260,34 @@ export const DigitalMultimeter: React.FC<DigitalMultimeterProps> = ({
       </div>
 
       {/* High-Contrast LCD Screen */}
-      <div className="bg-[#94a382] border-4 border-slate-950 rounded-lg p-3 text-slate-950 shadow-inner flex flex-col justify-between min-h-[92px] relative group">
+      <div
+        className={`bg-[#94a382] border-4 rounded-lg p-3 text-slate-950 shadow-inner flex flex-col justify-between min-h-[92px] relative group transition-colors duration-200 ${
+          multimeter.holdValue ? 'border-amber-600/80' : 'border-slate-950'
+        } ${holdGlowActive ? 'animate-dmm-hold-glow' : ''}`}
+      >
         {multimeter.isPowered ? (
           <>
             <div className="flex justify-between items-center text-[10px] font-mono font-bold tracking-wider text-slate-800">
               <div className="flex items-center gap-2">
                 <span>AUTO</span>
-                {multimeter.mode === 'CONTINUITY' && <Volume2 className="w-3 h-3 text-slate-900" />}
+                {multimeter.mode === 'CONTINUITY' && (
+                  beepEnabled ? (
+                    <Volume2 className="w-3 h-3 text-slate-900" />
+                  ) : (
+                    <VolumeX className="w-3 h-3 text-slate-700" />
+                  )
+                )}
                 {multimeter.mode === 'V_AC' && <span>AC~</span>}
                 {multimeter.mode === 'V_DC' && <span>DC</span>}
+                {multimeter.holdValue && (
+                  <span
+                    className={`px-1.5 py-px rounded bg-slate-950 text-amber-300 text-[9px] font-black tracking-widest ${
+                      holdGlowActive ? 'ring-2 ring-amber-400' : ''
+                    }`}
+                  >
+                    HOLD
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <span className="uppercase">{multimeter.mode.replace('_', ' ')}</span>
@@ -164,10 +296,10 @@ export const DigitalMultimeter: React.FC<DigitalMultimeterProps> = ({
 
             <div className="flex items-baseline justify-end gap-2 my-0.5">
               <span className="text-3xl sm:text-4xl font-mono font-black tracking-tight tabular-nums text-slate-950">
-                {reading.display}
+                {displayedReading.display}
               </span>
               <span className="text-base font-mono font-bold text-slate-900 w-10 text-left">
-                {reading.unit}
+                {displayedReading.unit}
               </span>
             </div>
 
@@ -184,16 +316,16 @@ export const DigitalMultimeter: React.FC<DigitalMultimeterProps> = ({
       </div>
 
       {/* Live Warning Banner */}
-      {reading.isWarning && reading.warningMessage && (
+      {displayedReading.isWarning && displayedReading.warningMessage && (
         <div className="bg-rose-950/80 border border-rose-700 px-3 py-1.5 rounded flex items-start gap-2 text-[11px] text-rose-300 font-mono">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
-          <span>{reading.warningMessage}</span>
+          <span>{displayedReading.warningMessage}</span>
         </div>
       )}
 
       {/* Rotary Selector Dial Buttons with High-Visibility Active State, Keyboard Navigation & Non-Obscuring Lab Tooltips */}
       <div
-        className="grid grid-cols-6 gap-1.5 bg-slate-950 p-2 rounded-xl border border-slate-800 shadow-inner relative"
+        className="grid grid-cols-6 gap-1.5 hud-well p-2 rounded-xl relative"
         role="radiogroup"
         aria-label="Multimeter Measurement Mode Selector (Use Arrow Keys to Navigate)"
       >
@@ -259,7 +391,7 @@ export const DigitalMultimeter: React.FC<DigitalMultimeterProps> = ({
               >
                 {/* High-Contrast Active Mode LED Indicator Dot */}
                 <div className="flex items-center gap-1">
-                  <span className={`w-2 h-2 rounded-full transition-all ${isSelected ? 'bg-slate-950 ring-2 ring-slate-900 animate-pulse' : 'bg-slate-700'}`} />
+                  <span className={`w-2 h-2 rounded-full transition-all ${isSelected ? 'bg-slate-950 ring-2 ring-slate-900' : 'bg-slate-700'}`} />
                 </div>
 
                 <span className="flex items-center gap-0.5 whitespace-nowrap tracking-tight">
@@ -302,13 +434,13 @@ export const DigitalMultimeter: React.FC<DigitalMultimeterProps> = ({
       </div>
 
       {/* Interactive Student Mode Educational Card */}
-      <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-2.5 font-sans text-[11px] flex flex-col gap-1 shadow-inner">
+      <div className="hud-well rounded-xl p-2.5 font-sans text-[11px] flex flex-col gap-1">
         <div className="flex items-center justify-between font-mono text-[10px]">
           <span className="text-amber-400 font-bold tracking-wide uppercase flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
             {activeModeInfo.title}
           </span>
-          <span className="text-slate-400 text-[9px] bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded font-mono">
+          <span className="text-slate-400 text-[9px] bg-slate-900/90 border border-slate-800 px-1.5 py-0.5 rounded font-mono">
             STUDENT LAB GUIDE
           </span>
         </div>

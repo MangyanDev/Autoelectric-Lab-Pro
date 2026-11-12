@@ -35,6 +35,8 @@ interface OfflineAssistantModalProps {
   liveContext: LiveBenchContext;
   savedLogs: SavedDiagnosticLog[];
   savedSessions: SavedBenchSession[];
+  initialPrompt?: string | null;
+  onClearInitialPrompt?: () => void;
   onNavigateTab: (
     tab: 'BENCH_LAB' | 'WIRING_DIAGRAM' | 'ECU_PINOUT' | 'OSCILLOSCOPE' | 'PCB_SCANNER' | 'REPAIR_GUIDE',
     pinId?: string
@@ -56,6 +58,8 @@ export const OfflineAssistantModal: React.FC<OfflineAssistantModalProps> = ({
   liveContext,
   savedLogs,
   savedSessions,
+  initialPrompt,
+  onClearInitialPrompt,
   onNavigateTab,
 }) => {
   const [input, setInput] = useState('');
@@ -76,6 +80,31 @@ export const OfflineAssistantModal: React.FC<OfflineAssistantModalProps> = ({
       timestamp: Date.now(),
     },
   ]);
+
+  useEffect(() => {
+    if (isOpen && initialPrompt && initialPrompt.trim()) {
+      const trimmed = initialPrompt.trim();
+      const reply = botEngine.ask(trimmed, liveContext);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `u_${Date.now()}`,
+          role: 'user',
+          text: trimmed,
+          timestamp: Date.now(),
+        },
+        {
+          id: `b_${Date.now() + 1}`,
+          role: 'assistant',
+          text: reply.answer,
+          citations: reply.citations,
+          suggestedPrompts: reply.suggestedPrompts,
+          timestamp: Date.now(),
+        },
+      ]);
+      onClearInitialPrompt?.();
+    }
+  }, [isOpen, initialPrompt, botEngine, liveContext, onClearInitialPrompt]);
 
   useEffect(() => {
     if (isOpen) {
@@ -141,16 +170,16 @@ export const OfflineAssistantModal: React.FC<OfflineAssistantModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-4xl h-[88vh] flex flex-col bg-slate-950 border border-emerald-700/70 rounded-2xl shadow-2xl overflow-hidden font-mono text-slate-100">
+      <div className="relative w-full max-w-4xl h-[88vh] flex flex-col hud-panel rounded-2xl shadow-2xl overflow-hidden font-mono text-slate-100">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 hud-header shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-emerald-950 border border-emerald-500/60 flex items-center justify-center">
               <Bot className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-sm font-bold text-slate-100 tracking-wide">
+                <h2 className="text-base font-hud font-bold text-slate-100 tracking-wide uppercase">
                   Offline ECU Diagnostic Assistant
                 </h2>
                 <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700 text-emerald-300 flex items-center gap-1">
@@ -227,7 +256,7 @@ export const OfflineAssistantModal: React.FC<OfflineAssistantModalProps> = ({
         </div>
 
         {/* Chat History */}
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[#070a10]">
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[#030712]">
           {messages.map((msg) => (
             <div
               key={msg.id}

@@ -163,15 +163,15 @@ export const BenchCloudModal: React.FC<BenchCloudModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-5xl max-h-[90vh] flex flex-col bg-slate-950 border border-cyan-800/80 rounded-2xl shadow-2xl overflow-hidden font-mono text-slate-100">
+      <div className="relative w-full max-w-5xl max-h-[90vh] flex flex-col hud-panel rounded-2xl shadow-2xl overflow-hidden font-mono text-slate-100">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800">
+        <div className="flex items-center justify-between px-4 py-3 hud-header">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-cyan-950 border border-cyan-500/50 flex items-center justify-center">
               <Save className="w-4 h-4 text-cyan-400" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-100 tracking-wide">
+              <h2 className="text-base font-hud font-bold text-slate-100 tracking-wide uppercase">
                 Saved Bench Sessions & Diagnostic Case Logs
               </h2>
               <p className="text-[11px] text-slate-400 font-sans">

@@ -26,6 +26,7 @@ import { EcuRepairKnowledgeBase } from './components/EcuRepairKnowledgeBase';
 import { GroundedSearchModal } from './components/GroundedSearchModal';
 import { BenchCloudModal } from './components/BenchCloudModal';
 import { OfflineAssistantModal } from './components/OfflineAssistantModal';
+import { DiagnosticGuidePanel } from './components/DiagnosticGuidePanel';
 import {
   SavedBenchSession,
   SavedDiagnosticLog,
@@ -34,21 +35,15 @@ import {
 } from './services/benchStorageService';
 import { useAuth } from './context/AuthContext';
 import {
-  Zap,
-  Activity,
-  Layers,
-  Cpu,
   RotateCcw,
   AlertTriangle,
   CheckCircle2,
-  Sliders,
-  Radio,
-  SlidersHorizontal,
   HelpCircle,
   BookOpen,
   Globe,
   Save,
   Bot,
+  PanelRightOpen,
 } from 'lucide-react';
 
 type LabTab = 'BENCH_LAB' | 'WIRING_DIAGRAM' | 'ECU_PINOUT' | 'OSCILLOSCOPE' | 'PCB_SCANNER' | 'REPAIR_GUIDE';
@@ -65,8 +60,15 @@ export default function App() {
 
   // 100% Offline MiniSearch Diagnostic Chatbot Modal
   const [showOfflineBot, setShowOfflineBot] = useState(false);
+  const [offlineBotPrompt, setOfflineBotPrompt] = useState<string | null>(null);
+  const [showDiagnosticGuide, setShowDiagnosticGuide] = useState(true);
   const [savedLogs, setSavedLogs] = useState<SavedDiagnosticLog[]>([]);
   const [savedSessions, setSavedSessions] = useState<SavedBenchSession[]>([]);
+
+  const handleOpenOfflineBot = (prompt?: string) => {
+    setOfflineBotPrompt(prompt || null);
+    setShowOfflineBot(true);
+  };
 
   useEffect(() => {
     if (!authReady || !user) {
@@ -256,80 +258,80 @@ export default function App() {
   const selectedPin = pins.find(p => p.id === selectedPinId);
 
   return (
-    <div className="flex flex-col h-screen bg-[#07090e] text-slate-100 font-sans select-none overflow-hidden">
-      {/* 1. Strict 3-Zone Top Navigation Bar */}
-      <header className="min-h-12 border-b border-slate-800 bg-slate-950 px-2.5 sm:px-5 py-1.5 sm:py-0 flex items-center justify-between gap-2 sm:gap-6 text-xs font-mono shrink-0 overflow-x-auto scrollbar-none">
-        {/* Zone 1: Official Logo & Brand Header */}
-        <div className="flex items-center gap-2 shrink-0">
+    <div className="flex flex-col h-screen hud-shell text-slate-100 font-body select-none overflow-hidden">
+      {/* 1. Streamlined 3-Zone Top Navigation Bar */}
+      <header className="h-13 hud-header px-3 sm:px-5 flex items-center justify-between gap-4 sm:gap-6 text-xs shrink-0 overflow-x-auto scrollbar-none">
+        {/* Zone 1: Single-Line Brand Wordmark & Emblem */}
+        <div className="flex items-center gap-2.5 shrink-0">
           <img
             src="/assets/aistudio/file_0000000098d48211abb177ce752b7b0e_62980da7.png"
-            alt="AutoElectric Lab Pro Official Logo"
-            className="h-7 sm:h-8 w-auto object-contain rounded border border-cyan-500/50 shadow-md transition-transform hover:scale-105"
+            alt="AutoElectric Lab Pro"
+            className="h-7 sm:h-8 w-auto object-contain rounded-md border border-cyan-500/40"
           />
-          <span className="font-bold tracking-tight text-slate-100 text-xs sm:text-sm whitespace-nowrap">
-            AutoElectric Lab Pro
+          <span className="font-hud font-bold tracking-wide text-sm sm:text-base whitespace-nowrap shrink-0">
+            <span className="brand-wordmark-silver">AutoElectric Lab</span>{' '}
+            <span className="brand-wordmark-amber">Pro</span>
           </span>
-          <span className="text-slate-500 text-xs hidden lg:inline">· ECU Bench Testbed</span>
         </div>
 
-        {/* Zone 2: Navigation Links (Scrollable Segmented Control) */}
-        <nav className="flex items-center gap-1 bg-slate-900 p-0.5 sm:p-1 rounded-lg border border-slate-800 overflow-x-auto scrollbar-none shrink-0 max-w-full">
+        {/* Zone 2: 6 Unified Navigation Tabs */}
+        <nav className="flex items-center gap-1 hud-well p-1 rounded-lg overflow-x-auto scrollbar-none shrink-0 max-w-full">
           <button
             onClick={() => setActiveTab('BENCH_LAB')}
-            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium rounded-md whitespace-nowrap shrink-0 transition ${
+            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
               activeTab === 'BENCH_LAB'
-                ? 'bg-cyan-600 text-white shadow-sm font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
             }`}
           >
             Bench Lab
           </button>
           <button
             onClick={() => setActiveTab('WIRING_DIAGRAM')}
-            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium rounded-md whitespace-nowrap shrink-0 transition ${
+            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
               activeTab === 'WIRING_DIAGRAM'
-                ? 'bg-cyan-600 text-white shadow-sm font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
             }`}
           >
             Harness Wiring
           </button>
           <button
             onClick={() => setActiveTab('ECU_PINOUT')}
-            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium rounded-md whitespace-nowrap shrink-0 transition ${
+            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
               activeTab === 'ECU_PINOUT'
-                ? 'bg-cyan-600 text-white shadow-sm font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
             }`}
           >
             ECU Pinouts
           </button>
           <button
             onClick={() => setActiveTab('OSCILLOSCOPE')}
-            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium rounded-md whitespace-nowrap shrink-0 transition ${
+            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
               activeTab === 'OSCILLOSCOPE'
-                ? 'bg-cyan-600 text-white shadow-sm font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
             }`}
           >
             Oscilloscope
           </button>
           <button
             onClick={() => setActiveTab('PCB_SCANNER')}
-            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium rounded-md whitespace-nowrap shrink-0 transition ${
+            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
               activeTab === 'PCB_SCANNER'
-                ? 'bg-cyan-600 text-white shadow-sm font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
             }`}
           >
             PCB Scanner
           </button>
           <button
             onClick={() => setActiveTab('REPAIR_GUIDE')}
-            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium rounded-md whitespace-nowrap shrink-0 transition flex items-center gap-1 ${
+            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition flex items-center gap-1 ${
               activeTab === 'REPAIR_GUIDE'
-                ? 'bg-cyan-600 text-white shadow-sm font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
@@ -337,105 +339,102 @@ export default function App() {
           </button>
         </nav>
 
-        {/* Zone 3: Primary Actions & Telemetry Status */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          <div className="hidden xl:flex items-center gap-2 text-[11px] text-slate-400">
+        {/* Zone 3: Live Telemetry & Utility Actions */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 font-mono">
+          <div className="hidden 2xl:flex items-center gap-2 text-[11px] text-slate-400 mr-1">
             <span>DRAW:</span>
             <span className="text-amber-400 font-bold tabular-nums">
               {circuitSolution.supplyCurrentDrawAmps.toFixed(2)} A
             </span>
             <span className="text-slate-700">·</span>
             {circuitSolution.activeDTCs.length > 0 ? (
-              <span className="text-rose-400 font-bold flex items-center gap-1">
+              <span className="text-rose-400 font-bold flex items-center gap-1 whitespace-nowrap">
                 <AlertTriangle className="w-3.5 h-3.5" /> {circuitSolution.activeDTCs.length} FAULT
               </span>
             ) : (
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
+              <span className="text-emerald-400 font-bold flex items-center gap-1 whitespace-nowrap">
                 <CheckCircle2 className="w-3.5 h-3.5" /> NOMINAL
               </span>
             )}
           </div>
 
           {/* Global Simulation Speed Control */}
-          <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 text-xs">
-            <span className="text-[10px] text-slate-400 font-bold whitespace-nowrap hidden sm:inline">SIM SPEED:</span>
+          <div className="flex items-center gap-1.5 hud-well px-2 py-1 rounded-lg text-xs shrink-0">
+            <span className="text-[10px] text-slate-400 font-bold whitespace-nowrap hidden xl:inline">SPEED:</span>
             <select
+              aria-label="Simulation Speed"
               value={simulationSpeed}
               onChange={e => setSimulationSpeed(parseFloat(e.target.value))}
-              className="bg-slate-950 border border-slate-700 text-cyan-300 font-bold rounded px-2 py-0.5 text-[11px] focus:outline-none cursor-pointer"
+              className="bg-transparent text-cyan-300 font-bold rounded px-1 py-0.5 text-[11px] focus:outline-none cursor-pointer"
             >
-              <option value="0.25">0.25x Slow-Mo</option>
-              <option value="0.5">0.5x Slow</option>
-              <option value="1.0">1.0x Realtime</option>
-              <option value="2.0">2.0x Fast</option>
-              <option value="4.0">4.0x Turbo</option>
+              <option value="0.25" className="bg-slate-950">0.25x Slow-Mo</option>
+              <option value="0.5" className="bg-slate-950">0.5x Slow</option>
+              <option value="1.0" className="bg-slate-950">1.0x Realtime</option>
+              <option value="2.0" className="bg-slate-950">2.0x Fast</option>
+              <option value="4.0" className="bg-slate-950">4.0x Turbo</option>
             </select>
           </div>
 
           <button
             onClick={() => setShowCloudModal(true)}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-emerald-300 bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-700/80 rounded-lg transition whitespace-nowrap shrink-0 shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900/70 border border-emerald-700/60 rounded-lg transition whitespace-nowrap shrink-0"
             title="Save or Load Bench Workspaces & Diagnostic Logs"
           >
             <Save className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden sm:inline">{user ? 'Saved Benches' : 'Save Bench'}</span>
-            <span className="sm:hidden">Save</span>
+            <span className="hidden lg:inline">{user ? 'Saved Benches' : 'Save Bench'}</span>
           </button>
 
           <button
-            onClick={() => setShowOfflineBot(true)}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-amber-200 bg-amber-950/80 hover:bg-amber-900/80 border border-amber-600/70 rounded-lg transition whitespace-nowrap shrink-0 shadow-sm"
+            onClick={() => handleOpenOfflineBot()}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-amber-200 bg-amber-950/70 hover:bg-amber-900/80 border border-amber-500/50 rounded-lg transition whitespace-nowrap shrink-0"
             title="100% Offline Diagnostic Assistant (MiniSearch Local Engine)"
           >
             <Bot className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Offline Bot</span>
-            <span className="sm:hidden">Bot</span>
+            <span className="hidden lg:inline">Offline Bot</span>
           </button>
 
           <button
             onClick={() => handleOpenGroundedSearch()}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-white bg-gradient-to-r from-blue-700 to-cyan-600 hover:from-blue-600 hover:to-cyan-500 border border-cyan-400/60 rounded-lg transition whitespace-nowrap shrink-0 shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-slate-950 bg-cyan-400 hover:bg-cyan-300 rounded-lg transition whitespace-nowrap shrink-0"
             title="Search Live OEM Bulletins, TSBs & Pinouts with Google Search Grounding"
           >
-            <Globe className="w-3.5 h-3.5 text-cyan-200" />
-            <span className="hidden sm:inline">Google Grounding</span>
-            <span className="sm:hidden">Intel</span>
+            <Globe className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Google Grounding</span>
           </button>
 
           <button
             onClick={() => setShowIntroModal(true)}
-            className="flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-cyan-300 bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700/80 rounded-lg transition whitespace-nowrap shrink-0 shadow-sm"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-300 bg-slate-900/80 hover:bg-slate-800 border border-cyan-500/30 rounded-lg transition whitespace-nowrap shrink-0"
             title="View Instructions & Executive Credentials"
           >
             <HelpCircle className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden xs:inline">Guide & Credits</span>
-            <span className="xs:hidden">Credits</span>
+            <span className="hidden xl:inline">Guide & Credits</span>
           </button>
 
           <button
             onClick={handleResetLab}
-            className="flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium text-slate-200 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg transition whitespace-nowrap shrink-0"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-slate-200 bg-slate-900/80 hover:bg-slate-800 border border-slate-700 rounded-lg transition whitespace-nowrap shrink-0"
             title="Reset Bench to Factory Setup"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Reset Bench</span>
+            <span className="hidden xl:inline">Reset</span>
           </button>
         </div>
       </header>
 
       {/* 2. Main Workspace Layout */}
-      <div className="flex-1 overflow-y-auto md:overflow-hidden p-2 sm:p-3.5 flex gap-2.5 sm:gap-3.5">
+      <div className="flex-1 overflow-y-auto md:overflow-hidden p-2 sm:p-3 flex gap-2.5 sm:gap-3">
         {/* TAB 1: BENCH LAB */}
         {activeTab === 'BENCH_LAB' && (
-          <div className="flex-1 flex flex-col md:flex-row gap-2.5 sm:gap-3.5 overflow-y-auto md:overflow-hidden min-h-0">
+          <div className="flex-1 flex flex-col lg:flex-row gap-2.5 sm:gap-3 overflow-y-auto lg:overflow-hidden min-h-0">
             {/* Left Instrument Column with Ergonomic Filter Tabs */}
-            <div className="w-full md:w-[390px] flex flex-col gap-2.5 shrink-0 overflow-y-auto md:overflow-hidden max-h-[50vh] md:max-h-none">
+            <div className="w-full lg:w-[370px] xl:w-[385px] flex flex-col gap-2.5 shrink-0 overflow-y-auto lg:overflow-hidden max-h-[50vh] lg:max-h-none">
               {/* Rack View Filter Tabs */}
-              <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 text-[11px] font-mono shrink-0">
+              <div className="flex items-center gap-1 hud-panel p-1 rounded-lg text-[11px] font-mono shrink-0">
                 <button
                   onClick={() => setRackFilter('ALL')}
-                  className={`flex-1 py-1 rounded text-center transition ${
-                    rackFilter === 'ALL' ? 'bg-slate-800 text-cyan-300 font-semibold' : 'text-slate-400 hover:text-white'
+                  className={`flex-1 py-1 rounded text-center transition whitespace-nowrap ${
+                    rackFilter === 'ALL' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   All Rack
@@ -502,7 +501,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Right: Live Interactive Wiring Canvas */}
+            {/* Center: Live Interactive Wiring Canvas */}
             <WiringCanvas
               pins={pins}
               wires={wires}
@@ -525,6 +524,26 @@ export default function App() {
               isPowerOn={powerSupply.isOutputEnabled}
               onOpenEcuPinouts={() => setActiveTab('ECU_PINOUT')}
               simulationSpeed={simulationSpeed}
+            />
+
+            {/* Right: Collapsible 5-Step MNA-Synced Diagnostic Guide */}
+            <DiagnosticGuidePanel
+              isOpen={showDiagnosticGuide}
+              onClose={() => setShowDiagnosticGuide(false)}
+              powerSupply={powerSupply}
+              pins={pins}
+              wires={wires}
+              faults={faults}
+              activeDTCs={circuitSolution.activeDTCs}
+              nodeVoltages={circuitSolution.nodeVoltages}
+              supplyCurrentDrawAmps={circuitSolution.supplyCurrentDrawAmps}
+              isSupplyCurrentTripped={circuitSolution.isSupplyCurrentTripped}
+              multimeter={multimeter}
+              multimeterReading={circuitSolution.multimeterReading}
+              selectedPinId={selectedPinId}
+              onSelectPin={setSelectedPinId}
+              onNavigateTab={setActiveTab}
+              onOpenOfflineBot={handleOpenOfflineBot}
             />
           </div>
         )}
@@ -644,23 +663,46 @@ export default function App() {
         )}
       </div>
 
-      {/* 3. Bottom Laboratory Status & Quick Probe Bar */}
-      <footer className="min-h-10 border-t border-slate-800 bg-slate-950 px-2.5 sm:px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-[11px] font-mono shrink-0 text-slate-400">
+      {/* 3. Functional Bottom Probe & Quick-Action Bar */}
+      <footer className="min-h-10 hud-header border-t border-cyan-500/20 px-3 sm:px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-[11px] font-mono shrink-0 text-slate-400">
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap truncate">
           <span className="truncate">
-            TARGET: <strong className="text-cyan-300">{selectedPin ? `${selectedPin.label} (#${selectedPin.pinNumber})` : 'None'}</strong>
+            TARGET:{' '}
+            <strong className="text-cyan-300">
+              {selectedPin ? `${selectedPin.label} (#${selectedPin.pinNumber})` : 'None'}
+            </strong>
           </span>
           <span className="text-slate-700 hidden xs:inline">|</span>
-          <span className="whitespace-nowrap">
-            DMM: <strong className="text-amber-300 font-bold">{circuitSolution.multimeterReading.display} {circuitSolution.multimeterReading.unit}</strong>
+          <span className="whitespace-nowrap tabular-nums">
+            DMM:{' '}
+            <strong className="text-amber-300 font-bold">
+              {circuitSolution.multimeterReading.display} {circuitSolution.multimeterReading.unit}
+            </strong>
           </span>
           <span className="text-slate-700 hidden md:inline">|</span>
-          <span className="whitespace-nowrap hidden md:inline">
-            HARNESS: <strong className="text-slate-200">{wires.filter(w => !w.isCut).length} Active / {wires.length} Wires</strong>
+          <span className="whitespace-nowrap hidden md:inline tabular-nums">
+            HARNESS:{' '}
+            <strong className="text-slate-200">
+              {wires.filter(w => !w.isCut).length} Active / {wires.length} Wires
+            </strong>
           </span>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {activeTab === 'BENCH_LAB' && (
+            <button
+              onClick={() => setShowDiagnosticGuide(prev => !prev)}
+              className={`text-[10px] flex items-center gap-1 px-2.5 py-1 rounded border transition whitespace-nowrap ${
+                showDiagnosticGuide
+                  ? 'bg-cyan-950/70 border-cyan-500/50 text-cyan-200'
+                  : 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white'
+              }`}
+              title="Toggle 5-Step MNA Diagnostic Guide"
+            >
+              <PanelRightOpen className="w-3 h-3 text-cyan-400" />
+              <span>5-Step Guide</span>
+            </button>
+          )}
           <button
             onClick={() => {
               if (selectedPinId) {
@@ -671,7 +713,7 @@ export default function App() {
                 }));
               }
             }}
-            className="text-[10px] text-rose-300 hover:text-white flex items-center gap-1 bg-rose-950/60 hover:bg-rose-900/60 px-2 py-1 rounded border border-rose-800/80 transition"
+            className="text-[10px] text-rose-300 hover:text-white flex items-center gap-1 bg-rose-950/60 hover:bg-rose-900/60 px-2 py-1 rounded border border-rose-800/80 transition whitespace-nowrap"
           >
             Attach Red (+)
           </button>
@@ -682,7 +724,7 @@ export default function App() {
                 blackProbe: { attachedToPinId: 'chassis-gnd', attachedLabel: 'Chassis GND (KL31)' },
               }));
             }}
-            className="text-[10px] text-slate-300 hover:text-white flex items-center gap-1 bg-slate-900 hover:bg-slate-800 px-2 py-1 rounded border border-slate-700 transition"
+            className="text-[10px] text-slate-300 hover:text-white flex items-center gap-1 bg-slate-900 hover:bg-slate-800 px-2 py-1 rounded border border-slate-700 transition whitespace-nowrap"
           >
             Black COM (-)
           </button>
@@ -738,6 +780,8 @@ export default function App() {
         }}
         savedLogs={savedLogs}
         savedSessions={savedSessions}
+        initialPrompt={offlineBotPrompt}
+        onClearInitialPrompt={() => setOfflineBotPrompt(null)}
         onNavigateTab={(tab, pinId) => {
           setActiveTab(tab);
           if (pinId) {

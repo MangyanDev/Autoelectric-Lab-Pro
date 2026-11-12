@@ -523,10 +523,10 @@ export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col gap-3 overflow-y-auto lg:overflow-hidden bg-slate-950 text-slate-100 p-2 font-mono select-none">
+    <div className="flex-1 flex flex-col gap-3 overflow-y-auto lg:overflow-hidden text-slate-100 p-1 font-mono select-none">
       
       {/* Top Header Toolbar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-md shrink-0">
+      <div className="hud-panel rounded-xl p-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3">
           <img
             src="/assets/aistudio/file_0000000098d48211abb177ce752b7b0e_62980da7.png"
@@ -535,10 +535,10 @@ export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
           />
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-slate-100 tracking-wide uppercase">
+              <h2 className="text-base font-hud font-bold text-slate-100 tracking-wide uppercase">
                 ECU Repair Knowledge Base & OEM Bulletins
               </h2>
-              <span className="text-[10px] text-cyan-400 bg-cyan-950/70 border border-cyan-800 px-2 py-0.5 rounded font-semibold">
+              <span className="text-[10px] text-cyan-300 bg-cyan-950/70 border border-cyan-600/60 px-2 py-0.5 rounded font-semibold">
                 {REPAIR_KNOWLEDGE_BASE.length} OEM Guides Loaded
               </span>
             </div>

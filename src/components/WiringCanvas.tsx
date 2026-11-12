@@ -259,16 +259,16 @@ export const WiringCanvas: React.FC<WiringCanvasProps> = ({
   const blackAnimated = useAnimatedCoords(targetBlackCoords, 'black');
 
   return (
-    <div className="relative flex-1 bg-slate-950 border border-slate-800 rounded-lg overflow-hidden flex flex-col select-none shadow-inner">
+    <div className="relative flex-1 hud-panel rounded-xl overflow-hidden flex flex-col select-none">
       {/* Canvas Top Status HUD */}
-      <div className="absolute top-3 left-3 z-20 flex items-center gap-3 bg-slate-900/90 backdrop-blur border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono text-slate-300 shadow">
-        <div className="flex items-center gap-1.5 font-semibold text-cyan-400">
-          <Activity className="w-3.5 h-3.5" />
+      <div className="absolute top-3 left-3 z-20 flex items-center gap-3 hud-panel px-3 py-1.5 rounded-lg text-xs font-mono text-slate-300">
+        <div className="flex items-center gap-1.5 font-hud font-bold tracking-wider text-cyan-300">
+          <Activity className="w-3.5 h-3.5 text-cyan-400" />
           <span>HARNESS SCHEMATIC ENGINE</span>
         </div>
         <span className="text-slate-700">|</span>
         {wireSourcePin ? (
-          <div className="flex items-center gap-2 text-amber-400 animate-pulse font-medium">
+          <div className="flex items-center gap-2 text-amber-300 font-medium">
             <Link2 className="w-3.5 h-3.5" />
             <span>Connect &ldquo;{wireSourcePin.label}&rdquo; &rarr; Click target terminal</span>
             <button
@@ -279,14 +279,14 @@ export const WiringCanvas: React.FC<WiringCanvasProps> = ({
             </button>
           </div>
         ) : (
-          <span className="text-slate-400 text-[11px]">
+          <span className="text-slate-400 text-[11px] font-sans">
             Click any pin jack to route wires or attach multimeter probes
           </span>
         )}
       </div>
 
       {/* Zoom / Reset HUD */}
-      <div className="absolute top-3 right-3 z-20 flex items-center gap-1 bg-slate-900/90 backdrop-blur border border-slate-800 p-1 rounded-lg text-slate-300 shadow">
+      <div className="absolute top-3 right-3 z-20 flex items-center gap-1 hud-panel p-1 rounded-lg text-slate-300">
         <button
           onClick={() => setZoomLevel(prev => Math.max(0.7, prev - 0.1))}
           className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
@@ -314,7 +314,7 @@ export const WiringCanvas: React.FC<WiringCanvasProps> = ({
       </div>
 
       {/* Main Interactive Stage */}
-      <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
+      <div className="flex-1 overflow-auto p-4 flex items-center justify-center hud-blueprint-grid">
         <div
           style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left' }}
           className="relative transition-transform duration-100 min-w-[1060px] min-h-[690px]"
@@ -323,13 +323,13 @@ export const WiringCanvas: React.FC<WiringCanvasProps> = ({
           <svg className="w-[1060px] h-[690px] block pointer-events-auto">
             {/* Engineering Grid */}
             <defs>
-              <pattern id="benchCanvasGrid" width="24" height="24" patternUnits="userSpaceOnUse">
-                <circle cx="2" cy="2" r="1" fill="#1e293b" />
-                <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#0f172a" strokeWidth="0.5" />
+              <pattern id="benchCanvasGrid" width="28" height="28" patternUnits="userSpaceOnUse">
+                <circle cx="2" cy="2" r="0.9" fill="rgba(56, 189, 248, 0.16)" />
+                <path d="M 28 0 L 0 0 0 28" fill="none" stroke="rgba(56, 189, 248, 0.06)" strokeWidth="0.6" />
               </pattern>
 
               <filter id="wireGlow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feGaussianBlur stdDeviation="2.5" result="blur" />
                 <feComposite in="SourceGraphic" in2="blur" operator="over" />
               </filter>
             </defs>

@@ -276,17 +276,17 @@ export const DtcFrequencyWidget: React.FC<DtcFrequencyWidgetProps> = ({
   return (
     <section
       aria-label="Detected DTC Frequency Across Saved Diagnostic Sessions"
-      className="bg-slate-900 border border-slate-800 rounded-xl shadow-md shrink-0 overflow-hidden"
+      className="hud-panel rounded-xl shrink-0 overflow-hidden"
     >
       {/* Compact Header Bar */}
-      <div className="px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 border-b border-slate-800/80">
+      <div className="px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 hud-header">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-7 h-7 rounded-lg bg-cyan-950/80 border border-cyan-700/70 flex items-center justify-center shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-cyan-950/80 border border-cyan-600/60 flex items-center justify-center shrink-0">
             <BarChart3 className="w-4 h-4 text-cyan-400" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wide">
+              <h3 className="text-sm font-hud font-bold text-slate-100 uppercase tracking-wide">
                 DTC Occurrence Frequency Across Saved Sessions
               </h3>
               {user && (
