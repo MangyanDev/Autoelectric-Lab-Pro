@@ -71,7 +71,7 @@ export const OfflineAssistantModal: React.FC<OfflineAssistantModalProps> = ({
     {
       id: 'welcome',
       role: 'assistant',
-      text: `Offline Diagnostic Guide ready (powered by MiniSearch open-source local engine — zero internet or API key required).\n\nI have indexed all **${botEngine.indexedCount} knowledge records** from Virtual ECU Lab: 9 OEM ECU pinout profiles, 21 PCB component hotspots, 9 repair manuals, live MNA bench playbooks, and your saved Firestore diagnostic logs.\n\nAsk me about any DTC, pinout, PCB component, or click **"Diagnose my current bench"** to inspect your live circuit.`,
+      text: `Offline Diagnostic Guide ready (powered by MiniSearch open-source local engine — zero internet or API key required).\n\nI have indexed all **${botEngine.indexedCount} knowledge records** from AutoElectric Lab Pro: 9 OEM ECU pinout profiles, 21 PCB component hotspots, 9 repair manuals, live MNA bench playbooks, and your saved Firestore diagnostic logs.\n\nAsk me about any DTC, pinout, PCB component, or click **"Diagnose my current bench"** to inspect your live circuit.`,
       suggestedPrompts: STARTER_PROMPTS.slice(0, 4),
       timestamp: Date.now(),
     },

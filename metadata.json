@@ -1,6 +1,6 @@
 {
-  "name": "Remix Untitled",
-  "description": "",
+  "name": "AutoElectric Lab Pro",
+  "description": "Deterministic MNA-powered ECU bench testing, wiring harness diagnostics, pinout library, oscilloscope, PCB scanner, and repair knowledge platform.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
