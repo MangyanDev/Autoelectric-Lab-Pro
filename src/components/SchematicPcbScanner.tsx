@@ -64,6 +64,7 @@ import {
   RefreshCw,
   Route,
   X,
+  FileText,
 } from 'lucide-react';
 
 // ============================================================================
@@ -1037,6 +1038,15 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
   const [showVoltageLabels, setShowVoltageLabels] = useState(true);
   const [showHotspots, setShowHotspots] = useState(true);
   const [showThermalHeatmap, setShowThermalHeatmap] = useState(false);
+  const [showDatasheetInfo, setShowDatasheetInfo] = useState(false);
+  const [clickedDatasheetNode, setClickedDatasheetNode] = useState<{
+    compRefDes: string;
+    pinNumber?: number;
+    pinName?: string;
+    netId?: string;
+    xNorm: number;
+    yNorm: number;
+  } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [ambientTempC, setAmbientTempC] = useState<number>(25);
 
@@ -1417,6 +1427,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
     setSelectedPinNumber(board.components[0]?.pinSpecs?.[0]?.pinNumber || 1);
     setSelectedHotspotId(null);
     setTracePathPair([null, null]);
+    setClickedDatasheetNode(null);
     setStatusMessage(`Loaded OEM Reference Preset: ${board.name}`);
   };
 
@@ -1435,6 +1446,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
     setInteractionMode('EDIT');
     setCropMarquee(null);
     setTracePathPair([null, null]);
+    setClickedDatasheetNode(null);
     setStatusMessage('PHASE 1/2: Running Local Sobel/Pad CV & optimizing photo...');
 
     try {
@@ -2048,6 +2060,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
     setSelectedCompRef(scan.components?.[0]?.refDes || null);
     setActiveNetId(scan.nets?.[0]?.name || null);
     setTracePathPair([null, null]);
+    setClickedDatasheetNode(null);
     setShowSavedScansPanel(false);
     setStatusMessage(`Loaded Cloud PCB Map: ${scan.title} (${scan.components?.length || 0} components)`);
   };
@@ -2170,6 +2183,28 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
       };
     }
   };
+
+  const openDatasheetCardForNode = useCallback(
+    (
+      compRefDes: string,
+      xNorm: number,
+      yNorm: number,
+      pinNumber?: number,
+      pinName?: string,
+      netId?: string
+    ) => {
+      if (!showDatasheetInfo) return;
+      setClickedDatasheetNode({
+        compRefDes,
+        pinNumber,
+        pinName,
+        netId,
+        xNorm,
+        yNorm,
+      });
+    },
+    [showDatasheetInfo]
+  );
 
   const handleSelectTracePathComponent = useCallback(
     (refDes: string) => {
@@ -2715,6 +2750,30 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
               <Thermometer className="w-3 h-3 text-rose-400" />
               <span>IR Thermal</span>
             </button>
+            <button
+              onClick={() => {
+                setShowDatasheetInfo((prev) => {
+                  const next = !prev;
+                  if (!next) {
+                    setClickedDatasheetNode(null);
+                  } else {
+                    setStatusMessage(
+                      'DATASHEET INFO ENABLED: Click any component node or pin pad to view component specifications.'
+                    );
+                  }
+                  return next;
+                });
+              }}
+              className={`px-2 py-0.5 rounded flex items-center gap-1 transition ${
+                showDatasheetInfo
+                  ? 'bg-sky-950 text-sky-200 font-bold border border-sky-400/70 shadow-[0_0_12px_rgba(56,189,248,0.35)]'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="When enabled, clicking any component node displays a floating datasheet specification summary card"
+            >
+              <FileText className="w-3 h-3 text-sky-400" />
+              <span>Show Datasheet Info</span>
+            </button>
             </div>
 
             {/* Trace Path Two-Component Pair Status Bar */}
@@ -2866,6 +2925,10 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                     xmax: startXNorm,
                     ymax: startYNorm,
                   });
+                  return;
+                }
+                if (interactionMode === 'EDIT') {
+                  setClickedDatasheetNode(null);
                 }
               }}
               style={{ width: `${boardWidthPx}px`, height: `${boardHeightPx}px` }}
@@ -3123,6 +3186,25 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                                     setHoveredPinNetId(null);
                                     setHoveredNodeTooltip(null);
                                   }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveNetId(net.name);
+                                    const primaryCompRef = net.connectedComponentRefs?.[0];
+                                    if (primaryCompRef) {
+                                      const linkedComp = components.find((c) => c.refDes === primaryCompRef);
+                                      const linkedPin = linkedComp?.pinSpecs?.find(
+                                        (ps) => ps.connectedNetId === net.name
+                                      );
+                                      openDatasheetCardForNode(
+                                        primaryCompRef,
+                                        p.x,
+                                        p.y,
+                                        linkedPin?.pinNumber,
+                                        linkedPin?.pinName,
+                                        net.name
+                                      );
+                                    }
+                                  }}
                                   onPointerDown={(e) => {
                                     if (interactionMode !== 'TRACE_EDIT' || !boardRef.current) return;
                                     e.stopPropagation();
@@ -3202,6 +3284,14 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                               setSelectedPinNumber(pin.pinNumber);
                               setActiveNetId(pin.connectedNetId);
                               setInspectorSubTab('PART');
+                              openDatasheetCardForNode(
+                                comp.refDes,
+                                pt.x,
+                                pt.y,
+                                pin.pinNumber,
+                                pin.pinName,
+                                pin.connectedNetId
+                              );
                             }}
                           >
                             <title>{`${comp.refDes} Pin #${pin.pinNumber} (${pin.pinName}) — Detected MNA Voltage: ${mnaDetails.voltage.toFixed(3)} V DC (Nominal: ${pin.nominalVoltage.toFixed(2)} V) | Net: ${pin.connectedNetId}`}</title>
@@ -3362,13 +3452,23 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                         e.stopPropagation();
                         setSelectedCompRef(comp.refDes);
                         setInspectorSubTab('PART');
+                        const firstPin = comp.pinSpecs?.[0];
                         if (
-                          comp.pinSpecs?.[0]?.connectedNetId &&
-                          comp.pinSpecs[0].connectedNetId !== 'NET_UNASSIGNED'
+                          firstPin?.connectedNetId &&
+                          firstPin.connectedNetId !== 'NET_UNASSIGNED'
                         ) {
-                          setActiveNetId(comp.pinSpecs[0].connectedNetId);
-                          setSelectedPinNumber(comp.pinSpecs[0].pinNumber);
+                          setActiveNetId(firstPin.connectedNetId);
+                          setSelectedPinNumber(firstPin.pinNumber);
                         }
+                        const boxCenter = getBoxCenter(comp.bbox);
+                        openDatasheetCardForNode(
+                          comp.refDes,
+                          boxCenter.x,
+                          boxCenter.y,
+                          firstPin?.pinNumber,
+                          firstPin?.pinName,
+                          firstPin?.connectedNetId
+                        );
                         dragRef.current = {
                           type: 'MOVE',
                           refDes: comp.refDes,
@@ -3541,6 +3641,14 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                                   setSelectedPinNumber(pin.pinNumber);
                                   setActiveNetId(pin.connectedNetId);
                                   setInspectorSubTab('PART');
+                                  openDatasheetCardForNode(
+                                    comp.refDes,
+                                    pinCoords.x,
+                                    pinCoords.y,
+                                    pin.pinNumber,
+                                    pin.pinName,
+                                    pin.connectedNetId
+                                  );
                                   const connectedNet = nets.find((n) => n.name === pin.connectedNetId);
                                   const nodes = connectedNet
                                     ? connectedNet.connectedComponentRefs.join(', ')
@@ -3830,6 +3938,151 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                   )}
                 </div>
               )}
+
+              {/* Floating Component Datasheet Specification Card (on Node Click when 'Show Datasheet Info' enabled) */}
+              {showDatasheetInfo &&
+                clickedDatasheetNode &&
+                (() => {
+                  const comp = components.find((c) => c.refDes === clickedDatasheetNode.compRefDes);
+                  if (!comp) return null;
+
+                  const clickedPin =
+                    clickedDatasheetNode.pinNumber !== undefined
+                      ? comp.pinSpecs?.find((p) => p.pinNumber === clickedDatasheetNode.pinNumber)
+                      : undefined;
+                  const clickedNet = clickedDatasheetNode.netId
+                    ? nets.find((n) => n.name === clickedDatasheetNode.netId)
+                    : undefined;
+                  const thermal = componentThermalMap[comp.refDes];
+
+                  const resistanceSpec = comp.category.toUpperCase().includes('RESISTOR')
+                    ? comp.decodedValue
+                    : comp.maxCurrentRating && /Ω|ohm|esr/i.test(comp.maxCurrentRating)
+                    ? comp.maxCurrentRating
+                    : clickedNet?.impedanceOhms !== undefined
+                    ? `${comp.decodedValue} (Trace ${clickedNet.impedanceOhms}Ω)`
+                    : comp.decodedValue || 'N/A';
+
+                  const maxVoltageSpec =
+                    comp.operatingVoltageRange ||
+                    (clickedPin ? `${clickedPin.nominalVoltage.toFixed(1)}V Nominal Pin Rail` : '5V–12V DC Automotive');
+
+                  const currentOrThermalSpec =
+                    comp.maxCurrentRating && !/Ω|ohm|esr/i.test(comp.maxCurrentRating)
+                      ? comp.maxCurrentRating
+                      : thermal
+                      ? `${thermal.thermalResistanceJa} °C/W · ${thermal.tempC.toFixed(1)}°C`
+                      : comp.maxCurrentRating || 'N/A';
+
+                  const mnaPinInfo = clickedPin
+                    ? resolveMnaNodeDetails(clickedPin.connectedNetId, clickedPin.nominalVoltage)
+                    : null;
+
+                  return (
+                    <div
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        top: `${Math.min(64, Math.max(8, (clickedDatasheetNode.yNorm / 1000) * 100 + 2))}%`,
+                        left: `${Math.min(58, Math.max(4, (clickedDatasheetNode.xNorm / 1000) * 100 + 2))}%`,
+                      }}
+                      className="pointer-events-auto absolute z-45 w-76 bg-slate-950/95 backdrop-blur-md border-2 border-sky-400/80 text-slate-100 p-3 rounded-xl shadow-[0_0_26px_rgba(56,189,248,0.38)] font-mono text-[10px]"
+                    >
+                      <div className="flex items-start justify-between gap-2 border-b border-slate-800 pb-1.5 mb-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <FileText className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                            <span className="font-extrabold text-sky-300 text-xs">{comp.refDes}</span>
+                            <span className="text-slate-200 font-bold truncate">
+                              {comp.marking || comp.category}
+                            </span>
+                          </div>
+                          <span className="text-[9px] text-slate-400 font-sans block truncate mt-0.5">
+                            {comp.packageType || 'SMD'} · {comp.category.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setClickedDatasheetNode(null)}
+                          className="p-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition shrink-0"
+                          title="Close Datasheet Info Card"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1.5 bg-slate-900/90 p-2 rounded-lg border border-slate-800 mb-2">
+                        <div className="col-span-2">
+                          <span className="text-[8.5px] text-slate-400 block font-sans">
+                            Max / Operating Voltage
+                          </span>
+                          <span className="text-[10px] font-bold text-amber-300 leading-tight block">
+                            {maxVoltageSpec}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[8.5px] text-slate-400 block font-sans">
+                            Resistance / Value
+                          </span>
+                          <span className="text-[10px] font-bold text-cyan-300 leading-tight block truncate" title={resistanceSpec}>
+                            {resistanceSpec}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[8.5px] text-slate-400 block font-sans">
+                            Current / Thermal
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-300 leading-tight block truncate" title={currentOrThermalSpec}>
+                            {currentOrThermalSpec}
+                          </span>
+                        </div>
+                      </div>
+
+                      {clickedPin && mnaPinInfo && (
+                        <div className="mb-2 px-2 py-1 rounded bg-sky-950/60 border border-sky-500/35 flex items-center justify-between gap-2 text-[9px]">
+                          <span className="text-sky-200 truncate">
+                            Pin #{clickedPin.pinNumber} ({clickedPin.pinName})
+                          </span>
+                          <span className="font-bold text-amber-300 tabular-nums shrink-0">
+                            {mnaPinInfo.voltage.toFixed(2)}V · {clickedPin.connectedNetId}
+                          </span>
+                        </div>
+                      )}
+
+                      <p className="text-[9.5px] text-slate-300 font-sans leading-snug line-clamp-3">
+                        {comp.datasheetSummary || comp.circuitFunction || comp.notes || 'Standard automotive ECU component.'}
+                      </p>
+
+                      <div className="mt-2 pt-1.5 border-t border-slate-800 flex items-center justify-between gap-2">
+                        {onOpenGroundedSearch ? (
+                          <button
+                            onClick={() =>
+                              onOpenGroundedSearch(
+                                `${comp.marking || comp.decodedValue} ${comp.category} datasheet specifications`,
+                                '',
+                                comp.marking || comp.refDes
+                              )
+                            }
+                            className="px-2 py-0.5 rounded bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-200 text-[9px] font-semibold flex items-center gap-1 transition"
+                          >
+                            <Globe className="w-2.5 h-2.5" />
+                            <span>Full Datasheet</span>
+                          </button>
+                        ) : (
+                          <span />
+                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedCompRef(comp.refDes);
+                            setInspectorSubTab('PART');
+                          }}
+                          className="text-[9px] text-sky-300 hover:text-sky-200 font-semibold"
+                        >
+                          Open Part Inspector →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
 
               {/* Thermal Heatmap Legend & Ambient Temperature Control Bar */}
               {showThermalHeatmap && (
