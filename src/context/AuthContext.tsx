@@ -1,6 +1,19 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
-import { auth, googleProvider, validateFirestoreConnection } from '../lib/firebase';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import {
+  GoogleAuthProvider,
+  User,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+} from 'firebase/auth';
+import {
+  auth,
+  clearCachedWorkspaceToken,
+  getCachedWorkspaceToken,
+  googleProvider,
+  setCachedWorkspaceToken,
+  validateFirestoreConnection,
+} from '../lib/firebase';
 import { syncUserProfile } from '../services/benchStorageService';
 
 interface AuthContextValue {
@@ -8,8 +21,11 @@ interface AuthContextValue {
   authReady: boolean;
   isSigningIn: boolean;
   authError: string | null;
-  signInWithGoogle: () => Promise<void>;
+  workspaceToken: string | null;
+  needsWorkspaceAuth: boolean;
+  signInWithGoogle: () => Promise<string | null>;
   signOutUser: () => Promise<void>;
+  invalidateWorkspaceToken: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -17,8 +33,11 @@ const AuthContext = createContext<AuthContextValue>({
   authReady: false,
   isSigningIn: false,
   authError: null,
-  signInWithGoogle: async () => {},
+  workspaceToken: null,
+  needsWorkspaceAuth: true,
+  signInWithGoogle: async () => null,
   signOutUser: async () => {},
+  invalidateWorkspaceToken: () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -26,45 +45,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authReady, setAuthReady] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [workspaceToken, setWorkspaceToken] = useState<string | null>(() => getCachedWorkspaceToken());
 
   useEffect(() => {
     validateFirestoreConnection();
     const unsub = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       setAuthReady(true);
-      if (currentUser && currentUser.email) {
-        try {
-          await syncUserProfile(currentUser.uid, currentUser.email, currentUser.displayName);
-        } catch (err) {
-          console.error('Failed to sync profile:', err);
+      if (currentUser) {
+        setWorkspaceToken(getCachedWorkspaceToken());
+        if (currentUser.email) {
+          try {
+            await syncUserProfile(currentUser.uid, currentUser.email, currentUser.displayName);
+          } catch (err) {
+            console.error('Failed to sync profile:', err);
+          }
         }
+      } else {
+        clearCachedWorkspaceToken();
+        setWorkspaceToken(null);
       }
     });
     return () => unsub();
   }, []);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async (): Promise<string | null> => {
     setIsSigningIn(true);
     setAuthError(null);
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const accessToken = credential?.accessToken ?? null;
+      if (accessToken) {
+        setCachedWorkspaceToken(accessToken);
+        setWorkspaceToken(accessToken);
+      } else {
+        clearCachedWorkspaceToken();
+        setWorkspaceToken(null);
+      }
+      return accessToken;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign-in failed';
       setAuthError(msg);
+      return null;
     } finally {
       setIsSigningIn(false);
     }
-  };
+  }, []);
 
-  const signOutUser = async () => {
+  const signOutUser = useCallback(async () => {
     setAuthError(null);
     try {
       await signOut(auth);
+      clearCachedWorkspaceToken();
+      setWorkspaceToken(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign-out failed';
       setAuthError(msg);
     }
-  };
+  }, []);
+
+  const invalidateWorkspaceToken = useCallback(() => {
+    clearCachedWorkspaceToken();
+    setWorkspaceToken(null);
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -73,8 +117,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authReady,
         isSigningIn,
         authError,
+        workspaceToken,
+        needsWorkspaceAuth: !user || !workspaceToken,
         signInWithGoogle,
         signOutUser,
+        invalidateWorkspaceToken,
       }}
     >
       {children}

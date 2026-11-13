@@ -4,7 +4,6 @@ import {
   Save,
   FolderOpen,
   Trash2,
-  LogIn,
   LogOut,
   FileText,
   Cpu,
@@ -15,6 +14,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { GoogleSignInButton } from './GoogleSignInButton';
 import {
   SavedBenchSession,
   SavedDiagnosticLog,
@@ -227,14 +227,13 @@ export const BenchCloudModal: React.FC<BenchCloudModalProps> = ({
                 </div>
               )}
 
-              <button
-                onClick={signInWithGoogle}
-                disabled={isSigningIn}
-                className="w-full py-2.5 px-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-2 shadow-md transition"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>{isSigningIn ? 'Signing in...' : 'Sign In with Google'}</span>
-              </button>
+              <div className="flex justify-center">
+                <GoogleSignInButton
+                  onClick={signInWithGoogle}
+                  disabled={isSigningIn}
+                  label={isSigningIn ? 'Signing in...' : 'Sign in with Google'}
+                />
+              </div>
             </div>
           ) : (
             <>

@@ -607,12 +607,12 @@ export const OemConnectorDiagram: React.FC<OemConnectorDiagramProps> = ({
   }, [hoveredCavity, nodeVoltages]);
 
   return (
-    <div className="relative h-64 sm:h-80 lg:flex-1 bg-[#e5e7eb] rounded-lg overflow-hidden border border-slate-700 flex flex-col">
+    <div className="relative min-h-[250px] sm:min-h-[300px] h-72 sm:h-80 lg:h-auto lg:flex-1 bg-[#e5e7eb] rounded-lg overflow-hidden border border-slate-700 flex flex-col shrink-0">
       {/* Top Toolbar strip */}
-      <div className="flex items-center justify-between px-2.5 py-1 bg-slate-900/95 border-b border-slate-700 text-[10px] text-slate-300 shrink-0">
-        <div className="flex items-center gap-2 truncate">
-          <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 font-bold text-cyan-300">
-            OEM HARNESS-SIDE CAD
+      <div className="flex items-center justify-between px-2 sm:px-2.5 py-1 bg-slate-900/95 border-b border-slate-700 text-[10px] text-slate-300 shrink-0 gap-1.5">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+          <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 font-bold text-cyan-300 whitespace-nowrap shrink-0 text-[9.5px] sm:text-[10px]">
+            OEM HARNESS CAD
           </span>
           <span className="truncate text-slate-400">
             {hoveredCavity ? (
@@ -633,14 +633,14 @@ export const OemConnectorDiagram: React.FC<OemConnectorDiagramProps> = ({
                 </span>
               )
             ) : (
-              'Click any numbered cavity or wire callout to inspect pinout & attach DMM probes'
+              'Tap or click any numbered cavity or wire callout to inspect pinout'
             )}
           </span>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0 ml-2">
+        <div className="flex items-center gap-1 shrink-0">
           <button
-            onClick={() => setZoom((z) => Math.max(1, Number((z - 0.25).toFixed(2))))}
+            onClick={() => setZoom((z) => Math.max(0.85, Number((z - 0.25).toFixed(2))))}
             className="p-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 cursor-pointer"
             title="Zoom Out"
           >
@@ -669,10 +669,15 @@ export const OemConnectorDiagram: React.FC<OemConnectorDiagramProps> = ({
       </div>
 
       {/* Scrollable Technical Diagram Canvas */}
-      <div className="flex-1 overflow-auto flex items-center justify-center p-1">
+      <div className="flex-1 overflow-auto flex items-center justify-start sm:justify-center p-1">
         <svg
           viewBox={`0 0 ${layout.width} ${layout.height}`}
-          style={{ width: `${zoom * 100}%`, height: zoom === 1 ? '100%' : 'auto', minHeight: '100%' }}
+          style={{
+            width: `${zoom * 100}%`,
+            minWidth: `${Math.round(540 * zoom)}px`,
+            height: zoom === 1 ? '100%' : 'auto',
+            minHeight: '100%',
+          }}
           className="select-none"
         >
           {/* Technical Drawing Outer Plate */}

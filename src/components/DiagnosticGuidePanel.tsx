@@ -309,7 +309,7 @@ export const DiagnosticGuidePanel: React.FC<DiagnosticGuidePanelProps> = ({
   return (
     <aside
       aria-label="5-Step MNA Diagnostic Guide"
-      className="w-full lg:w-[315px] xl:w-[335px] hud-panel rounded-xl p-3.5 flex flex-col justify-between gap-3 shrink-0 overflow-y-auto max-h-[48vh] lg:max-h-none"
+      className="w-full lg:w-[315px] xl:w-[335px] hud-panel rounded-xl p-3 sm:p-3.5 flex flex-col justify-between gap-3 shrink-0 overflow-y-auto flex-1 lg:flex-initial min-h-0"
     >
       <div className="flex flex-col gap-3">
         {/* Panel Header */}

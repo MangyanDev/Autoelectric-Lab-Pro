@@ -198,6 +198,7 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [showOverlayMarkers, setShowOverlayMarkers] = useState(true);
   const [viewMode, setViewMode] = useState<'PHYSICAL' | 'PCB' | 'LOGICAL'>('PHYSICAL');
+  const [mobilePinoutTab, setMobilePinoutTab] = useState<'DIAGRAM' | 'DIRECTORY'>('DIAGRAM');
 
   const activeBrand = useMemo(
     () => ECU_BRAND_PROFILES.find((b) => b.id === selectedBrandId) || ECU_BRAND_PROFILES[0],
@@ -279,43 +280,43 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
   }, [activeBrand.pinouts, searchQuery, selectedPlugFilter, categoryFilter]);
 
   return (
-    <div className="flex-1 flex flex-col gap-3 overflow-y-auto lg:overflow-hidden text-slate-100 p-1 font-mono select-none">
-      {/* 1. Header Toolbar */}
-      <div className="hud-panel rounded-xl p-3 flex flex-col gap-3 shrink-0">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-cyan-500/15 pb-2.5">
-          <div className="flex items-center gap-3">
+    <div className="flex-1 min-h-0 min-w-0 w-full flex flex-col gap-2 sm:gap-3 overflow-y-auto lg:overflow-hidden text-slate-100 p-0.5 sm:p-1 font-mono select-none">
+      {/* 1. Header Toolbar (Compact & zero horizontal overflow on mobile) */}
+      <div className="hud-panel rounded-xl p-2.5 sm:p-3 flex flex-col gap-2 sm:gap-2.5 shrink-0 w-full min-w-0 overflow-hidden">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 sm:gap-3 border-b border-cyan-500/15 pb-2">
+          <div className="flex items-start sm:items-center gap-2.5 min-w-0 w-full md:w-auto">
             <img
               src="/assets/aistudio/file_0000000098d48211abb177ce752b7b0e_62980da7.png"
               alt="AutoElectric Lab Pro Official Logo"
               width={32}
               height={32}
               decoding="async"
-              className="h-8 w-auto object-contain rounded border border-cyan-500/40 shadow-sm"
+              className="h-7 sm:h-8 w-auto object-contain rounded border border-cyan-500/40 shadow-sm shrink-0 mt-0.5 sm:mt-0"
             />
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-hud font-bold text-slate-100 tracking-wide uppercase">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <h2 className="text-xs sm:text-base font-hud font-bold text-slate-100 tracking-wide uppercase break-words">
                   {activeBrand.modelName}
                 </h2>
-                <span className="text-[10px] text-cyan-300 bg-cyan-950/70 border border-cyan-600/60 px-2 py-0.5 rounded font-semibold">
+                <span className="text-[9.5px] sm:text-[10px] text-cyan-300 bg-cyan-950/70 border border-cyan-600/60 px-1.5 sm:px-2 py-0.5 rounded font-semibold break-words">
                   {activeBrand.cavityInfo}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-sans mt-0.5">
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-sans mt-0.5 line-clamp-1 sm:line-clamp-none">
                 <strong className="text-amber-300">PH Vehicles:</strong>{' '}
                 {activeBrand.popularVehiclesInPH}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">
-              ECU BRAND:
+          <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto min-w-0">
+            <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap shrink-0 hidden xs:inline">
+              ECU:
             </span>
             <select
               value={selectedBrandId}
               onChange={(e) => handleBrandChange(e.target.value)}
-              className="bg-slate-950 border-2 border-cyan-500/80 text-cyan-300 font-bold rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400 flex-1 md:w-72 shadow-md cursor-pointer"
+              className="bg-slate-950 border border-cyan-500/80 text-cyan-300 font-bold rounded-lg px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400 flex-1 min-w-0 md:w-72 truncate shadow-md cursor-pointer"
             >
               {ECU_BRAND_PROFILES.map((brand) => (
                 <option
@@ -330,7 +331,7 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
             {onSearchLivePinout && (
               <button
                 onClick={() => onSearchLivePinout(activeBrand.modelName)}
-                className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-950 to-cyan-950 hover:from-blue-900 hover:to-cyan-900 border border-cyan-500/80 text-cyan-200 flex items-center gap-1.5 text-xs font-bold transition whitespace-nowrap shadow-sm cursor-pointer"
+                className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-950 to-cyan-950 hover:from-blue-900 hover:to-cyan-900 border border-cyan-500/80 text-cyan-200 flex items-center gap-1.5 text-xs font-bold transition whitespace-nowrap shadow-sm cursor-pointer shrink-0"
                 title="Search live Google Search Grounding for OEM bench pinouts"
               >
                 <Globe className="w-3.5 h-3.5 text-cyan-400" />
@@ -340,43 +341,60 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
           </div>
         </div>
 
-        {/* Brand Selector Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
+        {/* Brand Selector Strip */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5 w-full min-w-0">
           {ECU_BRAND_PROFILES.map((brand) => {
             const isSelected = brand.id === selectedBrandId;
             return (
               <button
                 key={brand.id}
                 onClick={() => handleBrandChange(brand.id)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition flex items-center gap-1.5 border cursor-pointer ${
+                className={`px-2 sm:px-2.5 py-1 rounded-lg text-[10.5px] sm:text-[11px] font-bold whitespace-nowrap shrink-0 transition flex items-center gap-1.5 border cursor-pointer ${
                   isSelected
                     ? 'bg-cyan-600 text-white border-cyan-400 shadow-md ring-1 ring-cyan-300'
                     : 'bg-slate-950 text-slate-400 hover:text-white border-slate-800 hover:border-slate-700'
                 }`}
               >
-                <Car className="w-3 h-3" />
+                <Car className="w-3 h-3 shrink-0" />
                 <span>{brand.brandName}</span>
-                {isSelected && <Check className="w-3 h-3 text-cyan-200" />}
+                {isSelected && <Check className="w-3 h-3 text-cyan-200 shrink-0" />}
               </button>
             );
           })}
         </div>
 
-        {/* Search & Filters */}
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1 border-t border-slate-800/80">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-              <input
-                type="text"
-                placeholder="Search function (Ground, CAN, Injector, Sensor)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-64 sm:w-72"
-              />
+        {/* Search & Single-Line Scrollable Filter Bars */}
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-2 text-xs pt-1 border-t border-slate-800/80 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+            {/* Search Input + Mobile Overlay Toggle Row */}
+            <div className="flex items-center gap-1.5 w-full sm:w-auto min-w-0">
+              <div className="relative flex-1 sm:w-64 md:w-72 min-w-0">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                <input
+                  type="text"
+                  placeholder="Search function (Ground, CAN, Injector)..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-full min-w-0"
+                />
+              </div>
+
+              <button
+                onClick={() => setShowOverlayMarkers((prev) => !prev)}
+                className={`sm:hidden px-2 py-1 rounded-lg border text-[10.5px] flex items-center gap-1 transition cursor-pointer whitespace-nowrap shrink-0 ${
+                  showOverlayMarkers
+                    ? 'bg-cyan-950/80 border-cyan-600 text-cyan-300 font-semibold'
+                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                }`}
+                title="Toggle Interactive Pin Markers"
+              >
+                <Layers className="w-3 h-3" />
+                <span>Overlay: {showOverlayMarkers ? 'ON' : 'OFF'}</span>
+              </button>
             </div>
 
-            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[10.5px]">
+            {/* Quick Category Filter Strip (Single-line horizontal scroll — never wraps vertically) */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[10.5px] overflow-x-auto scrollbar-none max-w-full">
               {['', 'Ground', 'K-Line', 'CAN', 'Injector', 'Sensor'].map((term) => {
                 const active =
                   (term === '' && searchQuery === '') ||
@@ -387,7 +405,7 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
                   <button
                     key={term || 'all'}
                     onClick={() => setSearchQuery(term)}
-                    className={`px-2 py-0.5 rounded transition cursor-pointer ${
+                    className={`px-2 py-0.5 rounded transition cursor-pointer whitespace-nowrap shrink-0 ${
                       active
                         ? term === 'K-Line'
                           ? 'bg-emerald-600 text-white font-bold'
@@ -409,12 +427,13 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
               })}
             </div>
 
-            <div className="hidden sm:flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+            {/* Connector Plug Filter Strip (Now visible on mobile & desktop!) */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs overflow-x-auto scrollbar-none max-w-full">
               {activeBrand.plugs.map((plug) => (
                 <button
                   key={plug.id}
                   onClick={() => setSelectedPlugFilter(plug.id)}
-                  className={`px-2.5 py-1 rounded transition text-[10.5px] cursor-pointer ${
+                  className={`px-2.5 py-0.5 sm:py-1 rounded transition text-[10.5px] cursor-pointer whitespace-nowrap shrink-0 ${
                     selectedPlugFilter === plug.id
                       ? 'bg-slate-800 text-cyan-400 font-bold'
                       : 'text-slate-400 hover:text-white'
@@ -428,12 +447,12 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
 
           <button
             onClick={() => setShowOverlayMarkers((prev) => !prev)}
-            className={`px-2.5 py-1 rounded-lg border text-xs flex items-center gap-1.5 transition cursor-pointer ${
+            className={`hidden sm:flex px-2.5 py-1 rounded-lg border text-xs items-center gap-1.5 transition cursor-pointer whitespace-nowrap shrink-0 ${
               showOverlayMarkers
                 ? 'bg-cyan-950/80 border-cyan-600 text-cyan-300 font-semibold'
                 : 'bg-slate-950 border-slate-800 text-slate-400'
             }`}
-            title="Toggle Interactive Pin Markers on Photograph"
+            title="Toggle Interactive Pin Markers on Diagram"
           >
             <Layers className="w-3.5 h-3.5" />
             <span>Pin Overlay: {showOverlayMarkers ? 'ON' : 'OFF'}</span>
@@ -441,26 +460,54 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
         </div>
       </div>
 
+      {/* Mobile Segmented Switcher (< lg): Switch cleanly between Connector Diagram & Pin Spec vs Pinout Directory */}
+      <div className="flex lg:hidden items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs shrink-0">
+        <button
+          onClick={() => setMobilePinoutTab('DIAGRAM')}
+          className={`flex-1 py-1.5 px-2 rounded-md text-center font-bold transition whitespace-nowrap ${
+            mobilePinoutTab === 'DIAGRAM'
+              ? 'bg-cyan-500 text-slate-950 shadow-sm'
+              : 'text-slate-300 hover:text-white'
+          }`}
+        >
+          Connector CAD & Pin #{activePinDetail.pinCode || activePinDetail.pinNumber}
+        </button>
+        <button
+          onClick={() => setMobilePinoutTab('DIRECTORY')}
+          className={`flex-1 py-1.5 px-2 rounded-md text-center font-bold transition whitespace-nowrap ${
+            mobilePinoutTab === 'DIRECTORY'
+              ? 'bg-cyan-500 text-slate-950 shadow-sm'
+              : 'text-slate-300 hover:text-white'
+          }`}
+        >
+          Pin Directory ({filteredPins.length} Pins)
+        </button>
+      </div>
+
       {/* 2. Main Two-Column Layout */}
       <div className="flex-1 flex flex-col lg:flex-row gap-3 overflow-y-auto lg:overflow-hidden min-h-0">
         {/* Left Column: Socket / PCB / Logical Schematic + Inspection Card */}
-        <div className="flex-1 flex flex-col gap-2 bg-slate-900 border border-slate-800 rounded-xl p-3 overflow-hidden shadow-inner">
+        <div
+          className={`flex-1 flex-col gap-2 bg-slate-900 border border-slate-800 rounded-xl p-2.5 sm:p-3 overflow-visible lg:overflow-y-auto shadow-inner min-w-0 ${
+            mobilePinoutTab === 'DIAGRAM' ? 'flex' : 'hidden lg:flex'
+          }`}
+        >
           <div className="flex flex-wrap items-center justify-between text-xs border-b border-slate-800 pb-2 gap-2">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-200">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <span className="font-bold text-slate-200 text-[11px] sm:text-xs truncate">
                 {viewMode === 'PHYSICAL'
                   ? 'PHYSICAL CONNECTOR RECEPTACLE (SOCKET)'
                   : viewMode === 'PCB'
                   ? 'INTERNAL ECU PCB BOARD & COMPONENT TOPOLOGY'
                   : 'LOGICAL ELECTRICAL SCHEMATIC'}
               </span>
-              <span className="text-slate-500 text-[10px]">· {activeBrand.brandName}</span>
+              <span className="text-slate-500 text-[10px] shrink-0">· {activeBrand.brandName}</span>
             </div>
 
-            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs overflow-x-auto scrollbar-none max-w-full">
               <button
                 onClick={() => setViewMode('PHYSICAL')}
-                className={`px-2.5 py-1 rounded transition text-[10.5px] font-bold cursor-pointer ${
+                className={`px-2 sm:px-2.5 py-1 rounded transition text-[10.5px] font-bold cursor-pointer whitespace-nowrap shrink-0 ${
                   viewMode === 'PHYSICAL'
                     ? 'bg-cyan-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-white'
@@ -476,19 +523,19 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
                       setSelectedPcbComponent(activeBrand.pcbComponents[0]);
                     }
                   }}
-                  className={`px-2.5 py-1 rounded transition text-[10.5px] font-bold flex items-center gap-1 cursor-pointer ${
+                  className={`px-2 sm:px-2.5 py-1 rounded transition text-[10.5px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0 ${
                     viewMode === 'PCB'
                       ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-300'
                       : 'text-emerald-400 hover:text-white'
                   }`}
                 >
-                  <Cpu className="w-3 h-3 text-emerald-300" />
+                  <Cpu className="w-3 h-3 text-emerald-300 shrink-0" />
                   <span>Internal PCB Board</span>
                 </button>
               )}
               <button
                 onClick={() => setViewMode('LOGICAL')}
-                className={`px-2.5 py-1 rounded transition text-[10.5px] font-bold cursor-pointer ${
+                className={`px-2 sm:px-2.5 py-1 rounded transition text-[10.5px] font-bold cursor-pointer whitespace-nowrap shrink-0 ${
                   viewMode === 'LOGICAL'
                     ? 'bg-cyan-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-white'
@@ -511,7 +558,7 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
               onSelectPin={handleSelectPinRow}
             />
           ) : viewMode === 'PCB' && activeBrand.pcbImageSrc ? (
-            <div className="relative h-64 sm:h-80 lg:flex-1 bg-black rounded-lg overflow-hidden border border-emerald-500/50 flex items-center justify-center">
+            <div className="relative min-h-[240px] h-64 sm:h-80 lg:flex-1 bg-black rounded-lg overflow-hidden border border-emerald-500/50 flex items-center justify-center shrink-0">
               <img
                 key={activePcbImg || activeBrand.pcbImageSrc}
                 src={activePcbImg || activeBrand.pcbImageSrc}
@@ -559,13 +606,12 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
                 })}
               </div>
 
-              <div className="absolute bottom-2 left-2 bg-slate-950/90 px-2.5 py-1 rounded border border-emerald-500/60 text-[10px] text-emerald-300">
-                {activeBrand.brandName} PCB Inspection · Click any hotspot to inspect SMD test
-                points
+              <div className="absolute bottom-2 left-2 right-2 sm:right-auto bg-slate-950/90 px-2.5 py-1 rounded border border-emerald-500/60 text-[10px] text-emerald-300 truncate">
+                {activeBrand.brandName} PCB Inspection · Tap any hotspot to inspect SMD test points
               </div>
             </div>
           ) : (
-            <div className="relative h-64 sm:h-80 lg:flex-1 bg-[#060c14] rounded-lg overflow-hidden border border-cyan-500/40 p-3 flex flex-col items-center justify-center">
+            <div className="relative min-h-[240px] h-64 sm:h-80 lg:flex-1 bg-[#060c14] rounded-lg overflow-hidden border border-cyan-500/40 p-2 sm:p-3 flex flex-col items-center justify-center shrink-0">
               <svg viewBox="0 0 700 280" className="w-full h-full">
                 <rect width="700" height="280" fill="#081412" />
                 <path
@@ -674,18 +720,18 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
                 })}
               </svg>
               <div className="absolute bottom-2 left-2 bg-slate-950/90 px-2.5 py-1 rounded border border-cyan-500/60 text-[10px] text-cyan-300">
-                Logical Electrical Schematic · Click any pin node to select
+                Logical Electrical Schematic · Tap any pin node to select
               </div>
             </div>
           )}
 
           {/* Bottom Inspection Card */}
           {viewMode === 'PCB' && selectedPcbComponent ? (
-            <div className="bg-slate-950 border border-emerald-500/50 rounded-lg p-3 flex flex-col gap-2">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                <div className="flex items-center gap-2">
+            <div className="bg-slate-950 border border-emerald-500/50 rounded-lg p-2.5 sm:p-3 flex flex-col gap-2 shrink-0">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <div className="w-3.5 h-3.5 rounded-full bg-emerald-400 border border-white shrink-0" />
-                  <span className="font-bold text-sm text-emerald-300">
+                  <span className="font-bold text-xs sm:text-sm text-emerald-300 truncate">
                     {selectedPcbComponent.designation} · {selectedPcbComponent.name}
                   </span>
                 </div>
@@ -716,7 +762,7 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
               </p>
 
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() =>
                       onAttachProbe(
@@ -728,14 +774,14 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
                     className="px-2.5 py-1 text-xs rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700 text-rose-300 font-semibold flex items-center gap-1.5 cursor-pointer"
                   >
                     <Disc className="w-3.5 h-3.5 text-rose-400 fill-rose-400" />
-                    <span>Attach Red Probe to Test Point</span>
+                    <span>Attach Red Probe</span>
                   </button>
                   <button
                     onClick={() => onAttachProbe('black', 'ecu-pin-1', 'PCB Chassis Ground')}
                     className="px-2.5 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 font-semibold flex items-center gap-1.5 cursor-pointer"
                   >
                     <Disc className="w-3.5 h-3.5 text-slate-400 fill-slate-400" />
-                    <span>Attach Black COM to PCB Ground</span>
+                    <span>Attach Black COM</span>
                   </button>
                 </div>
                 <button
@@ -748,23 +794,23 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
               </div>
             </div>
           ) : (
-            <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col gap-2">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                <div className="flex items-center gap-2 min-w-0">
+            <div className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 sm:p-3 flex flex-col gap-2 shrink-0">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                   <div
                     className="w-3.5 h-3.5 rounded-full border border-white shrink-0"
                     style={{ backgroundColor: activePinDetail.colorHex }}
                   />
-                  <span className="font-bold text-sm text-cyan-300 truncate">
+                  <span className="font-bold text-xs sm:text-sm text-cyan-300 truncate">
                     {activePinDetail.pinCode || `PIN #${activePinDetail.pinNumber}`} ·{' '}
                     {activePinDetail.label}
                   </span>
-                  <span className="text-slate-400 text-xs truncate">
+                  <span className="text-slate-400 text-[11px] sm:text-xs truncate">
                     ({activePinDetail.signalName})
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-xs shrink-0 ml-2">
-                  <span className="text-slate-400">VOLTAGE:</span>
+                <div className="flex items-center gap-1.5 text-xs shrink-0">
+                  <span className="text-slate-400 text-[10px] sm:text-xs">VOLT:</span>
                   <LiveVoltageValue
                     simPinId={activePinDetail.associatedSimPinId}
                     nominalVoltage={activePinDetail.nominalVoltage}
@@ -776,23 +822,23 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
-                <div className="bg-slate-900 p-2 rounded border border-slate-800">
+                <div className="bg-slate-900 p-2 rounded border border-slate-800 min-w-0">
                   <span className="text-slate-500 block text-[9px]">CONNECTOR PLUG</span>
-                  <span className="font-semibold text-slate-200">{activePinDetail.plug}</span>
+                  <span className="font-semibold text-slate-200 truncate block">{activePinDetail.plug}</span>
                 </div>
-                <div className="bg-slate-900 p-2 rounded border border-slate-800">
+                <div className="bg-slate-900 p-2 rounded border border-slate-800 min-w-0">
                   <span className="text-slate-500 block text-[9px]">HARNESS WIRE COLOR</span>
-                  <span className="font-semibold" style={{ color: activePinDetail.colorHex }}>
+                  <span className="font-semibold truncate block" style={{ color: activePinDetail.colorHex }}>
                     {activePinDetail.wireColor}
                   </span>
                 </div>
-                <div className="bg-slate-900 p-2 rounded border border-slate-800">
+                <div className="bg-slate-900 p-2 rounded border border-slate-800 min-w-0">
                   <span className="text-slate-500 block text-[9px]">SIGNAL CATEGORY</span>
-                  <span className="font-semibold text-cyan-300 uppercase">
+                  <span className="font-semibold text-cyan-300 uppercase truncate block">
                     {activePinDetail.category.replace('_', ' ')}
                   </span>
                 </div>
-                <div className="bg-slate-900 p-2 rounded border border-slate-800">
+                <div className="bg-slate-900 p-2 rounded border border-slate-800 min-w-0">
                   <span className="text-slate-500 block text-[9px]">BENCH ROLE</span>
                   <span className="font-semibold text-slate-200 truncate block">
                     {activePinDetail.benchRole}
@@ -802,7 +848,7 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
 
               <div className="bg-slate-900/90 p-2 rounded border border-slate-800 text-[11px] flex flex-col gap-1">
                 <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[10px]">
-                  <Terminal className="w-3 h-3" />
+                  <Terminal className="w-3 h-3 shrink-0" />
                   <span>BENCH CONNECTION INSTRUCTION:</span>
                 </div>
                 <p className="text-slate-300 text-[11px] font-sans">
@@ -814,8 +860,8 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => {
                       const simId =
@@ -852,7 +898,7 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
 
                 {activePinDetail.category === 'boot' && (
                   <div className="text-[10px] text-amber-400 bg-amber-950/50 border border-amber-800/80 px-2 py-1 rounded flex items-center gap-1">
-                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
                     <span>Boot Mode Pin: Requires 1kΩ pull-down to GND</span>
                   </div>
                 )}
@@ -862,18 +908,22 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
         </div>
 
         {/* Right Column: Bench Pinout Directory */}
-        <div className="w-full lg:w-[480px] flex flex-col gap-2 bg-slate-900 border border-slate-800 rounded-xl p-3 overflow-hidden shadow-inner shrink-0">
-          <div className="flex items-center justify-between text-xs border-b border-slate-800 pb-2">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-200">BENCH PINOUT DIRECTORY</span>
-              <span className="text-slate-500 text-[10px]">
-                ({filteredPins.length} Pins Tracked)
+        <div
+          className={`w-full lg:w-[480px] flex-col gap-2 bg-slate-900 border border-slate-800 rounded-xl p-2.5 sm:p-3 overflow-hidden shadow-inner shrink-0 flex-1 lg:flex-initial min-h-0 ${
+            mobilePinoutTab === 'DIRECTORY' ? 'flex' : 'hidden lg:flex'
+          }`}
+        >
+          <div className="flex items-center justify-between text-xs border-b border-slate-800 pb-2 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-bold text-slate-200 truncate">BENCH PINOUT DIRECTORY</span>
+              <span className="text-slate-500 text-[10px] shrink-0">
+                ({filteredPins.length} Pins)
               </span>
             </div>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-[10px] text-slate-300 focus:outline-none cursor-pointer"
+              className="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-[10px] text-slate-300 focus:outline-none cursor-pointer shrink-0"
             >
               <option value="ALL">All Categories</option>
               <option value="power">Power Supplies (+12V / 5V)</option>
@@ -885,19 +935,19 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
             </select>
           </div>
 
-          <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-[11px] flex flex-col gap-1.5">
-            <div className="flex items-center justify-between text-cyan-400 font-bold text-[10px]">
-              <span className="flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3 text-cyan-400" />
-                MINIMUM BENCH FLASH & TEST WIRING ({activeBrand.brandName}):
+          <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-[11px] flex flex-col gap-1.5 shrink-0">
+            <div className="flex items-center justify-between text-cyan-400 font-bold text-[10px] gap-2">
+              <span className="flex items-center gap-1 min-w-0 truncate">
+                <CheckCircle2 className="w-3 h-3 text-cyan-400 shrink-0" />
+                <span className="truncate">MINIMUM BENCH WIRING ({activeBrand.brandName}):</span>
               </span>
-              <span className="text-slate-400 font-normal">
-                {activeBrand.essentialChecklist.length} Essential Wires
+              <span className="text-slate-400 font-normal shrink-0">
+                {activeBrand.essentialChecklist.length} Wires
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-300">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[10px] text-slate-300">
               {activeBrand.essentialChecklist.map((item, idx) => (
-                <div key={idx}>
+                <div key={idx} className="truncate">
                   • <strong>{item.pin}</strong>: {item.role}
                 </div>
               ))}
@@ -909,7 +959,7 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-1.5 max-h-[440px] lg:max-h-none">
+          <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-1.5 min-h-[260px] lg:max-h-none">
             {filteredPins.map((pin) => {
               const isSelected =
                 activePinDetail.pinNumber === pin.pinNumber &&
@@ -929,7 +979,10 @@ export const EcuConnectorPinouts: React.FC<EcuConnectorPinoutsProps> = ({
                   isRedProbe={isRedProbe}
                   isBlackProbe={isBlackProbe}
                   nodeVoltages={nodeVoltages}
-                  onSelect={handleSelectPinRow}
+                  onSelect={(selectedPin) => {
+                    handleSelectPinRow(selectedPin);
+                    setMobilePinoutTab('DIAGRAM');
+                  }}
                 />
               );
             })}

@@ -2432,15 +2432,15 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none w-full lg:w-auto lg:flex-wrap pb-0.5 lg:pb-0">
           {/* Sample Presets */}
-          <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-lg border border-slate-800">
+          <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-lg border border-slate-800 shrink-0">
             <span className="text-[9.5px] text-slate-400 px-1 font-bold">PRESETS:</span>
             {SAMPLE_BOARDS.map((sb) => (
               <button
                 key={sb.id}
                 onClick={() => loadSample(sb)}
-                className={`px-2 py-0.5 text-[10px] rounded border transition ${
+                className={`px-2 py-0.5 text-[10px] rounded border transition whitespace-nowrap ${
                   selectedBoard.id === sb.id && !uploadedImageUrl
                     ? 'bg-cyan-950 border-cyan-400 text-cyan-200 font-bold shadow-sm'
                     : 'bg-slate-900 border-slate-700/80 text-slate-400 hover:text-white'
@@ -2455,7 +2455,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
           {/* Add Manual Part */}
           <button
             onClick={handleAddManualComponent}
-            className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition"
+            className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition whitespace-nowrap shrink-0"
             title="Add Manual Test Pad / Component"
           >
             <Plus className="w-3.5 h-3.5 text-cyan-400" />
@@ -2467,7 +2467,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
             <button
               onClick={handleRerunLocalCv}
               disabled={isAnalyzing}
-              className="flex items-center gap-1 px-2 py-1 bg-amber-950/70 hover:bg-amber-900/80 text-amber-200 border border-amber-600/60 rounded-lg transition disabled:opacity-50"
+              className="flex items-center gap-1 px-2 py-1 bg-amber-950/70 hover:bg-amber-900/80 text-amber-200 border border-amber-600/60 rounded-lg transition disabled:opacity-50 whitespace-nowrap shrink-0"
               title="Run Local CV Burn/Oxidation & Pad Cluster Scan"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
@@ -2479,7 +2479,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
           <button
             onClick={handleSavePcbToCloud}
             disabled={isSavingScan}
-            className="flex items-center gap-1 px-2 py-1 bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-200 border border-emerald-600/60 rounded-lg transition disabled:opacity-50"
+            className="flex items-center gap-1 px-2 py-1 bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-200 border border-emerald-600/60 rounded-lg transition disabled:opacity-50 whitespace-nowrap shrink-0"
             title="Save Mapped PCB Components, Nets & Hotspots to Firestore"
           >
             <CloudUpload className="w-3.5 h-3.5 text-emerald-400" />
@@ -2489,7 +2489,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
           {/* Saved Maps Dropdown Toggle */}
           <button
             onClick={() => setShowSavedScansPanel((prev) => !prev)}
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg border transition ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg border transition whitespace-nowrap shrink-0 ${
               showSavedScansPanel
                 ? 'bg-cyan-950 border-cyan-500 text-cyan-200'
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
@@ -2501,7 +2501,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
           </button>
 
           {/* Upload Button */}
-          <label className="flex items-center gap-1 px-2.5 py-1 bg-cyan-700 hover:bg-cyan-600 text-white rounded-lg cursor-pointer font-semibold transition shadow-sm">
+          <label className="flex items-center gap-1 px-2.5 py-1 bg-cyan-700 hover:bg-cyan-600 text-white rounded-lg cursor-pointer font-semibold transition shadow-sm whitespace-nowrap shrink-0">
             <Upload className="w-3.5 h-3.5" />
             <span>Upload PCB Photo</span>
             <input type="file" accept="image/*" onChange={handleUpload} className="hidden" />
@@ -2510,7 +2510,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
           {/* Export JSON */}
           <button
             onClick={exportProjectJson}
-            className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg transition"
+            className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg transition whitespace-nowrap shrink-0"
             title="Export JSON Datasheet & Thermal Backup"
           >
             <Download className="w-3.5 h-3.5" />
@@ -2603,8 +2603,8 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
           }`}
         >
           {/* HUD Layer & Tool Controls + Trace Path Status Stack */}
-          <div className="absolute top-2.5 left-2.5 right-36 z-40 flex flex-col items-start gap-1.5 pointer-events-none">
-            <div className="pointer-events-auto flex flex-wrap items-center gap-1 hud-panel p-1 rounded-lg text-[11px] text-slate-300 shadow-lg border border-slate-800/90">
+          <div className="absolute top-2 left-2 right-28 sm:right-36 z-40 flex flex-col items-start gap-1.5 pointer-events-none">
+            <div className="pointer-events-auto flex flex-nowrap md:flex-wrap items-center gap-1 hud-panel p-1 rounded-lg text-[10.5px] sm:text-[11px] text-slate-300 shadow-lg border border-slate-800/90 max-w-full overflow-x-auto scrollbar-none [&>button]:whitespace-nowrap [&>button]:shrink-0">
             <button
               onClick={() => setInteractionMode('EDIT')}
               className={`px-2 py-0.5 rounded flex items-center gap-1 transition ${
@@ -3867,7 +3867,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                     top: `${Math.min(76, Math.max(8, (hoveredNodeTooltip.yNorm / 1000) * 100 - 14))}%`,
                     left: `${Math.min(64, Math.max(4, (hoveredNodeTooltip.xNorm / 1000) * 100 + 3))}%`,
                   }}
-                  className="pointer-events-none absolute z-50 w-72 bg-slate-950/95 backdrop-blur-md border-2 border-cyan-400 text-slate-100 p-3 rounded-xl shadow-[0_0_25px_rgba(0,243,255,0.45)] font-mono text-[10px]"
+                  className="pointer-events-none absolute z-50 w-[min(18rem,calc(100vw-2rem))] sm:w-72 bg-slate-950/95 backdrop-blur-md border-2 border-cyan-400 text-slate-100 p-2.5 sm:p-3 rounded-xl shadow-[0_0_25px_rgba(0,243,255,0.45)] font-mono text-[10px]"
                 >
                   <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5 mb-2">
                     <div className="flex items-center gap-1.5 truncate">
@@ -3986,7 +3986,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                         top: `${Math.min(64, Math.max(8, (clickedDatasheetNode.yNorm / 1000) * 100 + 2))}%`,
                         left: `${Math.min(58, Math.max(4, (clickedDatasheetNode.xNorm / 1000) * 100 + 2))}%`,
                       }}
-                      className="pointer-events-auto absolute z-45 w-76 bg-slate-950/95 backdrop-blur-md border-2 border-sky-400/80 text-slate-100 p-3 rounded-xl shadow-[0_0_26px_rgba(56,189,248,0.38)] font-mono text-[10px]"
+                      className="pointer-events-auto absolute z-45 w-[min(19rem,calc(100vw-2rem))] sm:w-76 bg-slate-950/95 backdrop-blur-md border-2 border-sky-400/80 text-slate-100 p-2.5 sm:p-3 rounded-xl shadow-[0_0_26px_rgba(56,189,248,0.38)] font-mono text-[10px]"
                     >
                       <div className="flex items-start justify-between gap-2 border-b border-slate-800 pb-1.5 mb-2">
                         <div className="min-w-0">

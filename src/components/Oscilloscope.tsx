@@ -282,18 +282,20 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
   }, [isPowerOn, isRunning, activeSignal, hasCanFault, hasInjectorFault, timeDiv, voltDiv, simulationSpeed]);
 
   return (
-    <div className="hud-panel rounded-xl p-3.5 text-slate-100 flex flex-col gap-3">
+    <div className="hud-panel rounded-xl p-2.5 sm:p-3.5 text-slate-100 flex flex-col gap-2.5 sm:gap-3 shrink-0">
       {/* Scope Header */}
-      <div className="flex items-center justify-between border-b border-cyan-500/15 pb-2">
-        <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-emerald-400" />
-          <span className="text-sm font-hud font-bold tracking-wider text-slate-100 uppercase">
+      <div className="flex flex-wrap items-center justify-between border-b border-cyan-500/15 pb-2 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Activity className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="text-xs sm:text-sm font-hud font-bold tracking-wider text-slate-100 uppercase truncate">
             Digital Storage Lab Oscilloscope
           </span>
-          <span className="text-[10px] font-mono text-emerald-400 font-bold">2-CH 50MS/s TRUE RMS</span>
+          <span className="hidden sm:inline text-[10px] font-mono text-emerald-400 font-bold shrink-0">
+            2-CH 50MS/s TRUE RMS
+          </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setIsRunning(!isRunning)}
             className={`px-2.5 py-1 text-[10px] font-mono rounded border flex items-center gap-1.5 font-semibold transition ${
@@ -311,94 +313,94 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
       {/* Screen Canvas Container */}
       <div
         ref={containerRef}
-        className="relative border-2 border-slate-800 rounded-lg overflow-hidden bg-[#030807] h-[220px] w-full"
+        className="relative border-2 border-slate-800 rounded-lg overflow-hidden bg-[#030807] h-[195px] sm:h-[220px] w-full"
       >
         <canvas ref={canvasRef} className="w-full h-full block" />
 
         {/* Live HUD Waveform Annotations */}
-        <div className="absolute top-2.5 left-2.5 flex gap-2 text-[10px] font-mono pointer-events-none">
-          <span className="text-yellow-400 font-bold bg-slate-950/80 px-2 py-0.5 rounded border border-yellow-500/40">
-            CH1: {activeSignal === 'CAN_BUS' ? 'CAN_H (3.5V Recessive/Dominant)' : activeSignal}
+        <div className="absolute top-2 left-2 right-2 flex flex-wrap gap-1.5 text-[9.5px] sm:text-[10px] font-mono pointer-events-none">
+          <span className="text-yellow-400 font-bold bg-slate-950/85 px-1.5 sm:px-2 py-0.5 rounded border border-yellow-500/40 truncate">
+            CH1: {activeSignal === 'CAN_BUS' ? 'CAN_H (3.5V)' : activeSignal}
           </span>
           {activeSignal === 'CAN_BUS' && (
-            <span className="text-cyan-400 font-bold bg-slate-950/80 px-2 py-0.5 rounded border border-cyan-500/40">
-              CH2: CAN_L (1.5V Differential)
+            <span className="text-cyan-400 font-bold bg-slate-950/85 px-1.5 sm:px-2 py-0.5 rounded border border-cyan-500/40 truncate">
+              CH2: CAN_L (1.5V Diff)
             </span>
           )}
         </div>
 
         {/* Live On-Screen Telemetry Strip */}
-        <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-[10px] font-mono text-slate-400 hud-well px-2.5 py-1 rounded pointer-events-none">
-          <div className="flex items-center gap-3">
+        <div className="absolute bottom-1.5 left-1.5 right-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[9.5px] sm:text-[10px] font-mono text-slate-400 hud-well px-2 py-1 rounded pointer-events-none">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
             <span>Vpp: <strong className="text-cyan-300 font-mono tabular-nums">{measuredVpp}</strong></span>
             <span>Freq: <strong className="text-emerald-300 font-mono tabular-nums">{measuredFreq}</strong></span>
             <span>Duty: <strong className="text-amber-300 font-mono tabular-nums">{measuredDuty}</strong></span>
             <span>Vrms: <strong className="text-slate-200 font-mono tabular-nums">{measuredVrms}</strong></span>
           </div>
-          <div className="text-[9px] text-slate-500">TRIGGER: AUTO EDGE &uarr;</div>
+          <div className="hidden sm:block text-[9px] text-slate-500">TRIGGER: AUTO EDGE &uarr;</div>
         </div>
       </div>
 
       {/* Control Bar & Channel Selector */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono pt-1 border-t border-cyan-500/15">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] text-slate-400 uppercase">Input Channel:</span>
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none w-full sm:w-auto sm:flex-wrap pb-0.5">
+          <span className="text-[10px] text-slate-400 uppercase whitespace-nowrap shrink-0 mr-0.5">CH:</span>
           <button
             onClick={() => setActiveSignal('CAN_BUS')}
-            className={`px-2 py-1 text-[10px] rounded border transition ${
+            className={`px-2 py-1 text-[10px] rounded border transition whitespace-nowrap shrink-0 ${
               activeSignal === 'CAN_BUS'
                 ? 'bg-slate-800 border-yellow-400 text-yellow-300 font-semibold'
                 : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
             }`}
           >
-            CAN High/Low Bus
+            CAN High/Low
           </button>
           <button
             onClick={() => setActiveSignal('INJECTOR_PWM')}
-            className={`px-2 py-1 text-[10px] rounded border transition ${
+            className={`px-2 py-1 text-[10px] rounded border transition whitespace-nowrap shrink-0 ${
               activeSignal === 'INJECTOR_PWM'
                 ? 'bg-slate-800 border-cyan-400 text-cyan-300 font-semibold'
                 : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
             }`}
           >
-            Injector 1 Pulse
+            Injector 1 PWM
           </button>
           <button
             onClick={() => setActiveSignal('CRANK_CKP')}
-            className={`px-2 py-1 text-[10px] rounded border transition ${
+            className={`px-2 py-1 text-[10px] rounded border transition whitespace-nowrap shrink-0 ${
               activeSignal === 'CRANK_CKP'
                 ? 'bg-slate-800 border-emerald-400 text-emerald-300 font-semibold'
                 : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
             }`}
           >
-            Crank 60-2 Sensor
+            Crank 60-2
           </button>
           <button
             onClick={() => setActiveSignal('O2_LAMBDA')}
-            className={`px-2 py-1 text-[10px] rounded border transition ${
+            className={`px-2 py-1 text-[10px] rounded border transition whitespace-nowrap shrink-0 ${
               activeSignal === 'O2_LAMBDA'
                 ? 'bg-slate-800 border-purple-400 text-purple-300 font-semibold'
                 : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
             }`}
           >
-            O2 Lambda Sensor
+            O2 Lambda
           </button>
           <button
             onClick={() => setActiveSignal('TPS_DC')}
-            className={`px-2 py-1 text-[10px] rounded border transition ${
+            className={`px-2 py-1 text-[10px] rounded border transition whitespace-nowrap shrink-0 ${
               activeSignal === 'TPS_DC'
                 ? 'bg-slate-800 border-amber-400 text-amber-300 font-semibold'
                 : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
             }`}
           >
-            TPS Analog DC
+            TPS DC
           </button>
         </div>
 
         {/* Scope Scale Controls */}
-        <div className="flex items-center gap-3 text-[10px] text-slate-400">
+        <div className="flex items-center gap-2 sm:gap-3 text-[10px] text-slate-400 w-full sm:w-auto justify-between sm:justify-end">
           <div className="flex items-center gap-1.5 hud-well px-2 py-1 rounded">
-            <span>VOLT/DIV:</span>
+            <span>V/DIV:</span>
             <button
               onClick={() => setVoltDiv(v => Math.max(0.5, v - 0.25))}
               className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 font-bold"
@@ -415,7 +417,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 hud-well px-2 py-1 rounded">
-            <span>TIME/DIV:</span>
+            <span>T/DIV:</span>
             <button
               onClick={() => setTimeDiv(t => Math.max(0.5, t - 0.25))}
               className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 font-bold"

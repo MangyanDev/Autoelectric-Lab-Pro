@@ -171,7 +171,9 @@ export const WiringCanvas: React.FC<WiringCanvasProps> = React.memo(({
   const [wireSourcePin, setWireSourcePin] = useState<{ id: string; label: string } | null>(null);
   const [hoveredWireId, setHoveredWireId] = useState<string | null>(null);
   const [activePinMenuId, setActivePinMenuId] = useState<string | null>(null);
-  const [zoomLevel, setZoomLevel] = useState(1.0);
+  const [zoomLevel, setZoomLevel] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 640 ? 0.58 : 1.0
+  );
   const [hoveredEcuPinId, setHoveredEcuPinId] = useState<string | null>(null);
   const [hoveredCompPinId, setHoveredCompPinId] = useState<string | null>(null);
 
@@ -268,62 +270,71 @@ export const WiringCanvas: React.FC<WiringCanvasProps> = React.memo(({
   const blackAnimated = useAnimatedCoords(targetBlackCoords, 'black');
 
   return (
-    <div className="relative flex-1 hud-panel rounded-xl overflow-hidden flex flex-col select-none">
-      {/* Canvas Top Status HUD */}
-      <div className="absolute top-3 left-3 z-20 flex items-center gap-3 hud-panel px-3 py-1.5 rounded-lg text-xs font-mono text-slate-300">
-        <div className="flex items-center gap-1.5 font-hud font-bold tracking-wider text-cyan-300">
-          <Activity className="w-3.5 h-3.5 text-cyan-400" />
-          <span>HARNESS SCHEMATIC ENGINE</span>
-        </div>
-        <span className="text-slate-700">|</span>
-        {wireSourcePin ? (
-          <div className="flex items-center gap-2 text-amber-300 font-medium">
-            <Link2 className="w-3.5 h-3.5" />
-            <span>Connect &ldquo;{wireSourcePin.label}&rdquo; &rarr; Click target terminal</span>
-            <button
-              onClick={() => setWireSourcePin(null)}
-              className="text-[10px] text-slate-400 hover:text-white underline ml-1"
-            >
-              Cancel
-            </button>
+    <div className="relative flex-1 min-h-0 min-w-0 hud-panel rounded-xl overflow-hidden flex flex-col select-none">
+      {/* Responsive Top Status & Zoom HUD Bar (Never overlaps on mobile) */}
+      <div className="absolute top-2 sm:top-3 left-2 sm:left-3 right-2 sm:right-3 z-20 flex flex-wrap items-center justify-between gap-1.5 pointer-events-none">
+        <div className="pointer-events-auto flex items-center gap-2 sm:gap-3 hud-panel px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-mono text-slate-300 min-w-0 max-w-full">
+          <div className="flex items-center gap-1.5 font-hud font-bold tracking-wider text-cyan-300 whitespace-nowrap shrink-0">
+            <Activity className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span>HARNESS SCHEMATIC ENGINE</span>
           </div>
-        ) : (
-          <span className="text-slate-400 text-[11px] font-sans">
-            Click any pin jack to route wires or attach multimeter probes
-          </span>
-        )}
-      </div>
+          <span className="text-slate-700 hidden sm:inline">|</span>
+          {wireSourcePin ? (
+            <div className="flex items-center gap-1.5 text-amber-300 font-medium truncate">
+              <Link2 className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Connect &ldquo;{wireSourcePin.label}&rdquo; &rarr; Tap target</span>
+              <button
+                onClick={() => setWireSourcePin(null)}
+                className="text-[10px] text-slate-400 hover:text-white underline ml-1 shrink-0"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <span className="text-slate-400 text-[10px] sm:text-[11px] font-sans hidden sm:inline truncate">
+              Click any pin jack to route wires or attach multimeter probes
+            </span>
+          )}
+        </div>
 
-      {/* Zoom / Reset HUD */}
-      <div className="absolute top-3 right-3 z-20 flex items-center gap-1 hud-panel p-1 rounded-lg text-slate-300">
-        <button
-          onClick={() => setZoomLevel(prev => Math.max(0.7, prev - 0.1))}
-          className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
-          title="Zoom Out"
-        >
-          <ZoomOut className="w-3.5 h-3.5" />
-        </button>
-        <span className="text-[11px] font-mono px-1.5 text-slate-400 tabular-nums">
-          {Math.round(zoomLevel * 100)}%
-        </span>
-        <button
-          onClick={() => setZoomLevel(prev => Math.min(1.4, prev + 0.1))}
-          className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
-          title="Zoom In"
-        >
-          <ZoomIn className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={() => setZoomLevel(1.0)}
-          className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
-          title="Reset View 100%"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-        </button>
+        {/* Zoom / Fit / Reset HUD */}
+        <div className="pointer-events-auto flex items-center gap-1 hud-panel p-1 rounded-lg text-slate-300 shrink-0">
+          <button
+            onClick={() => setZoomLevel(prev => Math.max(0.45, +(prev - 0.1).toFixed(2)))}
+            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+            title="Zoom Out"
+          >
+            <ZoomOut className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-[10px] sm:text-[11px] font-mono px-1 text-slate-300 tabular-nums">
+            {Math.round(zoomLevel * 100)}%
+          </span>
+          <button
+            onClick={() => setZoomLevel(prev => Math.min(1.4, +(prev + 0.1).toFixed(2)))}
+            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+            title="Zoom In"
+          >
+            <ZoomIn className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setZoomLevel(0.55)}
+            className="sm:hidden px-1.5 py-0.5 text-[10px] font-mono font-bold bg-slate-800 hover:bg-slate-700 rounded text-cyan-300"
+            title="Fit Full Harness to Phone Screen"
+          >
+            Fit
+          </button>
+          <button
+            onClick={() => setZoomLevel(1.0)}
+            className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+            title="Reset View 100%"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Main Interactive Stage */}
-      <div className="flex-1 overflow-auto p-4 flex items-center justify-center hud-blueprint-grid">
+      <div className="flex-1 overflow-auto p-2 sm:p-4 pt-12 sm:pt-14 flex items-start sm:items-center justify-start sm:justify-center hud-blueprint-grid">
         <div
           style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left' }}
           className="relative transition-transform duration-100 min-w-[1060px] min-h-[690px]"

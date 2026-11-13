@@ -465,6 +465,7 @@ export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedArticle, setSelectedArticle] = useState<RepairArticle>(REPAIR_KNOWLEDGE_BASE[0]);
+  const [mobileManualPane, setMobileManualPane] = useState<'INDEX' | 'ARTICLE'>('ARTICLE');
 
   const filteredArticles = REPAIR_KNOWLEDGE_BASE.filter(art => {
     const q = searchQuery.toLowerCase().trim();
@@ -503,6 +504,7 @@ export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
       setSearchQuery(dtcCode);
       setSelectedArticle(matched);
       setActiveMode('OEM_MANUALS');
+      setMobileManualPane('ARTICLE');
     } else {
       setGroundingPrefill({
         query: `${dtcCode} automotive ECU bench diagnostic procedure pinout TSB`,
@@ -523,37 +525,37 @@ export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col gap-3 overflow-y-auto lg:overflow-hidden text-slate-100 p-1 font-mono select-none">
+    <div className="flex-1 min-h-0 min-w-0 w-full flex flex-col gap-2 sm:gap-3 overflow-y-auto lg:overflow-hidden text-slate-100 p-0.5 sm:p-1 font-mono select-none">
       
       {/* Top Header Toolbar */}
-      <div className="hud-panel rounded-xl p-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="hud-panel rounded-xl p-2.5 sm:p-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 sm:gap-3 shrink-0 min-w-0">
+        <div className="flex items-start sm:items-center gap-2.5 min-w-0">
           <img
             src="/assets/aistudio/file_0000000098d48211abb177ce752b7b0e_62980da7.png"
             alt="AutoElectric Lab Pro Official Logo"
-            className="h-8 w-auto object-contain rounded border border-cyan-500/40 shadow-sm"
+            className="h-7 sm:h-8 w-auto object-contain rounded border border-cyan-500/40 shadow-sm shrink-0"
           />
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-hud font-bold text-slate-100 tracking-wide uppercase">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h2 className="text-xs sm:text-base font-hud font-bold text-slate-100 tracking-wide uppercase">
                 ECU Repair Knowledge Base & OEM Bulletins
               </h2>
-              <span className="text-[10px] text-cyan-300 bg-cyan-950/70 border border-cyan-600/60 px-2 py-0.5 rounded font-semibold">
+              <span className="text-[9.5px] sm:text-[10px] text-cyan-300 bg-cyan-950/70 border border-cyan-600/60 px-2 py-0.5 rounded font-semibold">
                 {REPAIR_KNOWLEDGE_BASE.length} OEM Guides Loaded
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-sans mt-0.5">
+            <p className="text-[10px] sm:text-[11px] text-slate-400 font-sans mt-0.5 line-clamp-1 sm:line-clamp-none">
               OEM Manuals (Nissan MEC11/22, Marelli 5NF, Toyota 1KD/2KD, ME7.5, SID208) + Live Google Search Grounding
             </p>
           </div>
         </div>
 
         {/* View Mode Switcher: OEM Manuals vs Live Google Search Grounding */}
-        <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between md:justify-end min-w-0">
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs overflow-x-auto scrollbar-none max-w-full">
             <button
               onClick={() => setActiveMode('OEM_MANUALS')}
-              className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition flex items-center gap-1.5 ${
+              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-[11px] font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 activeMode === 'OEM_MANUALS'
                   ? 'bg-cyan-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
@@ -564,7 +566,7 @@ export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
             </button>
             <button
               onClick={() => setActiveMode('LIVE_GROUNDING_SEARCH')}
-              className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition flex items-center gap-1.5 ${
+              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-[11px] font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 activeMode === 'LIVE_GROUNDING_SEARCH'
                   ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-cyan-300'
@@ -577,22 +579,22 @@ export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
           </div>
 
           {activeMode === 'OEM_MANUALS' && (
-            <div className="flex items-center gap-2">
-              <div className="relative hidden xl:block w-48">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+            <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto min-w-0">
+              <div className="relative flex-1 sm:w-48 min-w-0">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
                 <input
                   type="text"
                   placeholder="Filter manuals..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-2 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-full"
+                  className="bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-2 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-full min-w-0"
                 />
               </div>
 
               <select
                 value={selectedCategory}
                 onChange={e => setSelectedCategory(e.target.value)}
-                className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-cyan-300 font-bold focus:outline-none cursor-pointer"
+                className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] sm:text-xs text-cyan-300 font-bold focus:outline-none cursor-pointer shrink-0"
               >
                 <option value="ALL">All Categories</option>
                 <option value="NISSAN_HITACHI">Nissan Hitachi</option>
@@ -615,7 +617,7 @@ export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
           />
         </div>
       ) : (
-        <div className="flex-1 flex flex-col gap-3 overflow-y-auto lg:overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col gap-2 sm:gap-3 overflow-y-auto lg:overflow-hidden min-h-0">
           <DtcFrequencyWidget
             savedSessions={savedSessions}
             savedLogs={savedLogs}
@@ -625,10 +627,38 @@ export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
             onOpenSavedBenches={onOpenSavedBenches}
           />
 
+          {/* Mobile Segmented Switcher (< lg): Manual Index vs Read Active Manual */}
+          <div className="flex lg:hidden items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs shrink-0">
+            <button
+              onClick={() => setMobileManualPane('INDEX')}
+              className={`flex-1 py-1.5 px-2 rounded-md text-center font-bold transition whitespace-nowrap ${
+                mobileManualPane === 'INDEX'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Manual Index ({filteredArticles.length})
+            </button>
+            <button
+              onClick={() => setMobileManualPane('ARTICLE')}
+              className={`flex-1 py-1.5 px-2 rounded-md text-center font-bold transition whitespace-nowrap truncate ${
+                mobileManualPane === 'ARTICLE'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Read Manual: {selectedArticle.dtcCode}
+            </button>
+          </div>
+
           <div className="flex-1 flex flex-col lg:flex-row gap-3 overflow-y-auto lg:overflow-hidden min-h-0">
         
         {/* Left Column: Article Index List */}
-        <div className="w-full lg:w-[380px] flex flex-col gap-2 bg-slate-900 border border-slate-800 rounded-xl p-3 overflow-hidden shadow-inner shrink-0">
+        <div
+          className={`w-full lg:w-[380px] flex-col gap-2 bg-slate-900 border border-slate-800 rounded-xl p-3 overflow-hidden shadow-inner shrink-0 flex-1 lg:flex-initial min-h-[260px] ${
+            mobileManualPane === 'INDEX' ? 'flex' : 'hidden lg:flex'
+          }`}
+        >
           <div className="flex items-center justify-between text-xs border-b border-slate-800 pb-2">
             <span className="font-bold text-slate-200">REPAIR MANUAL INDEX</span>
             <span className="text-slate-500 text-[10px]">{filteredArticles.length} Manuals Found</span>
@@ -640,7 +670,10 @@ export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
               return (
                 <div
                   key={art.id}
-                  onClick={() => setSelectedArticle(art)}
+                  onClick={() => {
+                    setSelectedArticle(art);
+                    setMobileManualPane('ARTICLE');
+                  }}
                   className={`p-2.5 rounded-lg border text-xs cursor-pointer transition flex flex-col gap-1.5 ${
                     isSelected
                       ? 'bg-slate-800/90 border-cyan-400 shadow-md ring-1 ring-cyan-400/40 text-white'
@@ -665,12 +698,22 @@ export const EcuRepairKnowledgeBase: React.FC<EcuRepairKnowledgeBaseProps> = ({
         </div>
 
         {/* Right Column: Detailed Repair Manual View */}
-        <div className="flex-1 flex flex-col gap-3 bg-slate-900 border border-slate-800 rounded-xl p-4 overflow-y-auto shadow-inner">
+        <div
+          className={`flex-1 flex-col gap-3 bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 overflow-y-auto shadow-inner min-h-0 ${
+            mobileManualPane === 'ARTICLE' ? 'flex' : 'hidden lg:flex'
+          }`}
+        >
           
           {/* Article Header */}
           <div className="flex flex-col gap-1.5 border-b border-slate-800 pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setMobileManualPane('INDEX')}
+                  className="lg:hidden px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 text-[10px] font-bold"
+                >
+                  &larr; All Manuals
+                </button>
                 <span className="px-2.5 py-1 rounded bg-amber-950/80 border border-amber-600 text-amber-300 font-bold font-mono text-xs">
                   {selectedArticle.dtcCode}
                 </span>

@@ -49,6 +49,9 @@ const OfflineAssistantModal = lazy(() =>
 const ThreeBenchTwin = lazy(() =>
   import('./components/ThreeBenchTwin').then((m) => ({ default: m.ThreeBenchTwin }))
 );
+const GoogleDocsModal = lazy(() =>
+  import('./components/GoogleDocsModal').then((m) => ({ default: m.GoogleDocsModal }))
+);
 import {
   SavedBenchSession,
   SavedDiagnosticLog,
@@ -67,10 +70,12 @@ import {
   Bot,
   PanelRightOpen,
   Box,
+  FileText,
 } from 'lucide-react';
 
 type LabTab = 'BENCH_LAB' | 'WIRING_DIAGRAM' | 'THREE_D_TWIN' | 'ECU_PINOUT' | 'OSCILLOSCOPE' | 'PCB_SCANNER' | 'REPAIR_GUIDE';
 type RackFilter = 'ALL' | 'DMM_POWER' | 'FAULT_MATRIX';
+type MobileBenchPane = 'INSTRUMENTS' | 'CANVAS' | 'GUIDE';
 
 export default function App() {
   const { user, authReady } = useAuth();
@@ -80,6 +85,9 @@ export default function App() {
 
   // Saved Bench & Diagnostic Logs Modal
   const [showCloudModal, setShowCloudModal] = useState(false);
+
+  // Google Docs OEM Diagnostic Report & Notes Modal
+  const [showDocsModal, setShowDocsModal] = useState(false);
 
   // 100% Offline MiniSearch Diagnostic Chatbot Modal (lazy-initialized on first open)
   const [showOfflineBot, setShowOfflineBot] = useState(false);
@@ -135,6 +143,7 @@ export default function App() {
   // Navigation
   const [activeTab, setActiveTab] = useState<LabTab>('BENCH_LAB');
   const [rackFilter, setRackFilter] = useState<RackFilter>('ALL');
+  const [mobileBenchPane, setMobileBenchPane] = useState<MobileBenchPane>('INSTRUMENTS');
   const [simulationSpeed, setSimulationSpeed] = useState<number>(1.0);
 
   // Core Bench State
@@ -333,27 +342,99 @@ export default function App() {
   const selectedPin = pins.find(p => p.id === selectedPinId);
 
   return (
-    <div className="flex flex-col h-screen hud-shell text-slate-100 font-body select-none overflow-hidden">
-      {/* 1. Streamlined 3-Zone Top Navigation Bar */}
-      <header className="h-13 hud-header px-3 sm:px-5 flex items-center justify-between gap-4 sm:gap-6 text-xs shrink-0 overflow-x-auto scrollbar-none">
-        {/* Zone 1: Single-Line Brand Wordmark & Emblem */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <img
-            src="/assets/aistudio/file_0000000098d48211abb177ce752b7b0e_62980da7.png"
-            alt="AutoElectric Lab Pro"
-            className="h-7 sm:h-8 w-auto object-contain rounded-md border border-cyan-500/40"
-          />
-          <span className="font-hud font-bold tracking-wide text-sm sm:text-base whitespace-nowrap shrink-0">
-            <span className="brand-wordmark-silver">AutoElectric Lab</span>{' '}
-            <span className="brand-wordmark-amber">Pro</span>
-          </span>
+    <div className="flex flex-col h-[100dvh] hud-shell text-slate-100 font-body select-none overflow-hidden">
+      {/* 1. Responsive 3-Zone Top Navigation Bar (2 compact rows on mobile, single row on desktop) */}
+      <header className="hud-header px-2.5 sm:px-5 py-1.5 lg:py-0 lg:h-13 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-1.5 lg:gap-4 text-xs shrink-0">
+        {/* Top Row on Mobile / Left+Right Zones on Desktop */}
+        <div className="flex items-center justify-between gap-2 w-full lg:w-auto min-w-0">
+          {/* Zone 1: Single-Line Brand Wordmark & Emblem */}
+          <div className="flex items-center gap-2 shrink-0">
+            <img
+              src="/assets/aistudio/file_0000000098d48211abb177ce752b7b0e_62980da7.png"
+              alt="AutoElectric Lab Pro"
+              className="h-6 sm:h-8 w-auto object-contain rounded-md border border-cyan-500/40"
+            />
+            <span className="font-hud font-bold tracking-wide text-xs sm:text-base whitespace-nowrap shrink-0">
+              <span className="brand-wordmark-silver">AutoElectric Lab</span>{' '}
+              <span className="brand-wordmark-amber">Pro</span>
+            </span>
+          </div>
+
+          {/* Mobile/Tablet Utility Actions Strip (visible < lg so tabs get 100% width on Row 2) */}
+          <div className="flex lg:hidden items-center gap-1 overflow-x-auto scrollbar-none font-mono pl-1">
+            <div className="flex items-center hud-well px-1.5 py-0.5 rounded-md text-[10px] shrink-0">
+              <select
+                aria-label="Simulation Speed Mobile"
+                value={simulationSpeed}
+                onChange={e => setSimulationSpeed(parseFloat(e.target.value))}
+                className="bg-transparent text-cyan-300 font-bold rounded py-0.5 text-[10px] focus:outline-none cursor-pointer"
+              >
+                <option value="0.25" className="bg-slate-950">0.25x</option>
+                <option value="0.5" className="bg-slate-950">0.5x</option>
+                <option value="1.0" className="bg-slate-950">1.0x</option>
+                <option value="2.0" className="bg-slate-950">2.0x</option>
+                <option value="4.0" className="bg-slate-950">4.0x</option>
+              </select>
+            </div>
+
+            <button
+              onClick={() => setShowCloudModal(true)}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-emerald-300 bg-emerald-950/60 border border-emerald-700/60 rounded-md whitespace-nowrap shrink-0"
+              title="Save or Load Bench Workspaces"
+            >
+              <Save className="w-3 h-3 text-emerald-400" />
+              <span className="hidden sm:inline">Saved</span>
+            </button>
+
+            <button
+              onClick={() => setShowDocsModal(true)}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-blue-200 bg-blue-950/70 border border-blue-600/60 rounded-md whitespace-nowrap shrink-0"
+              title="Google Docs Reports"
+            >
+              <FileText className="w-3 h-3 text-blue-400" />
+              <span className="hidden sm:inline">Docs</span>
+            </button>
+
+            <button
+              onClick={() => handleOpenOfflineBot()}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-amber-200 bg-amber-950/70 border border-amber-500/50 rounded-md whitespace-nowrap shrink-0"
+              title="Offline Diagnostic Bot"
+            >
+              <Bot className="w-3 h-3 text-amber-400" />
+              <span className="hidden sm:inline">Bot</span>
+            </button>
+
+            <button
+              onClick={() => handleOpenGroundedSearch()}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-slate-950 bg-cyan-400 rounded-md whitespace-nowrap shrink-0"
+              title="Google Search Grounding"
+            >
+              <Globe className="w-3 h-3" />
+            </button>
+
+            <button
+              onClick={() => setShowIntroModal(true)}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-cyan-300 bg-slate-900/80 border border-cyan-500/30 rounded-md whitespace-nowrap shrink-0"
+              title="Guide & Credits"
+            >
+              <HelpCircle className="w-3 h-3 text-cyan-400" />
+            </button>
+
+            <button
+              onClick={handleResetLab}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-slate-200 bg-slate-900/80 border border-slate-700 rounded-md whitespace-nowrap shrink-0"
+              title="Reset Bench"
+            >
+              <RotateCcw className="w-3 h-3" />
+            </button>
+          </div>
         </div>
 
-        {/* Zone 2: 6 Unified Navigation Tabs */}
-        <nav className="flex items-center gap-1 hud-well p-1 rounded-lg overflow-x-auto scrollbar-none shrink-0 max-w-full">
+        {/* Zone 2: 7 Unified Navigation Tabs (Full-width swipeable bar on mobile, centered well on desktop) */}
+        <nav className="flex items-center gap-1 hud-well p-1 rounded-lg overflow-x-auto scrollbar-none w-full lg:w-auto shrink-0">
           <button
             onClick={() => setActiveTab('BENCH_LAB')}
-            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
+            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
               activeTab === 'BENCH_LAB'
                 ? 'bg-cyan-500 text-slate-950 shadow-sm'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
@@ -363,7 +444,7 @@ export default function App() {
           </button>
           <button
             onClick={() => setActiveTab('WIRING_DIAGRAM')}
-            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
+            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
               activeTab === 'WIRING_DIAGRAM'
                 ? 'bg-cyan-500 text-slate-950 shadow-sm'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
@@ -373,7 +454,7 @@ export default function App() {
           </button>
           <button
             onClick={() => setActiveTab('THREE_D_TWIN')}
-            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition flex items-center gap-1 ${
+            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition flex items-center gap-1 ${
               activeTab === 'THREE_D_TWIN'
                 ? 'bg-cyan-500 text-slate-950 shadow-sm'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
@@ -384,7 +465,7 @@ export default function App() {
           </button>
           <button
             onClick={() => setActiveTab('ECU_PINOUT')}
-            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
+            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
               activeTab === 'ECU_PINOUT'
                 ? 'bg-cyan-500 text-slate-950 shadow-sm'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
@@ -394,7 +475,7 @@ export default function App() {
           </button>
           <button
             onClick={() => setActiveTab('OSCILLOSCOPE')}
-            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
+            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
               activeTab === 'OSCILLOSCOPE'
                 ? 'bg-cyan-500 text-slate-950 shadow-sm'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
@@ -404,7 +485,7 @@ export default function App() {
           </button>
           <button
             onClick={() => setActiveTab('PCB_SCANNER')}
-            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
+            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition ${
               activeTab === 'PCB_SCANNER'
                 ? 'bg-cyan-500 text-slate-950 shadow-sm'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
@@ -414,7 +495,7 @@ export default function App() {
           </button>
           <button
             onClick={() => setActiveTab('REPAIR_GUIDE')}
-            className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition flex items-center gap-1 ${
+            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-hud font-bold tracking-wide uppercase rounded-md whitespace-nowrap shrink-0 transition flex items-center gap-1 ${
               activeTab === 'REPAIR_GUIDE'
                 ? 'bg-cyan-500 text-slate-950 shadow-sm'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
@@ -425,8 +506,8 @@ export default function App() {
           </button>
         </nav>
 
-        {/* Zone 3: Live Telemetry & Utility Actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 font-mono">
+        {/* Zone 3: Desktop Live Telemetry & Utility Actions */}
+        <div className="hidden lg:flex items-center gap-1.5 sm:gap-2 shrink-0 font-mono">
           <div className="hidden 2xl:flex items-center gap-2 text-[11px] text-slate-400 mr-1">
             <span>DRAW:</span>
             <span className="text-amber-400 font-bold tabular-nums">
@@ -467,7 +548,16 @@ export default function App() {
             title="Save or Load Bench Workspaces & Diagnostic Logs"
           >
             <Save className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden lg:inline">{user ? 'Saved Benches' : 'Save Bench'}</span>
+            <span className="hidden xl:inline">{user ? 'Saved Benches' : 'Save Bench'}</span>
+          </button>
+
+          <button
+            onClick={() => setShowDocsModal(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-blue-200 bg-blue-950/70 hover:bg-blue-900/70 border border-blue-600/60 rounded-lg transition whitespace-nowrap shrink-0"
+            title="Export MNA Bench Reports & Manage Google Docs"
+          >
+            <FileText className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden xl:inline">Google Docs</span>
           </button>
 
           <button
@@ -476,7 +566,7 @@ export default function App() {
             title="100% Offline Diagnostic Assistant (MiniSearch Local Engine)"
           >
             <Bot className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden lg:inline">Offline Bot</span>
+            <span className="hidden xl:inline">Offline Bot</span>
           </button>
 
           <button
@@ -485,7 +575,7 @@ export default function App() {
             title="Search Live OEM Bulletins, TSBs & Pinouts with Google Search Grounding"
           >
             <Globe className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Google Grounding</span>
+            <span className="hidden xl:inline">Google Grounding</span>
           </button>
 
           <button
@@ -494,7 +584,7 @@ export default function App() {
             title="View Instructions & Executive Credentials"
           >
             <HelpCircle className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden xl:inline">Guide & Credits</span>
+            <span className="hidden 2xl:inline">Guide & Credits</span>
           </button>
 
           <button
@@ -503,18 +593,59 @@ export default function App() {
             title="Reset Bench to Factory Setup"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden xl:inline">Reset</span>
+            <span className="hidden 2xl:inline">Reset</span>
           </button>
         </div>
       </header>
 
       {/* 2. Main Workspace Layout */}
-      <div className="flex-1 overflow-y-auto md:overflow-hidden p-2 sm:p-3 flex gap-2.5 sm:gap-3">
+      <div className="flex-1 min-h-0 overflow-hidden p-1.5 sm:p-3 flex gap-2 sm:gap-3">
         {/* TAB 1: BENCH LAB */}
         {activeTab === 'BENCH_LAB' && (
-          <div className="flex-1 flex flex-col lg:flex-row gap-2.5 sm:gap-3 overflow-y-auto lg:overflow-hidden min-h-0">
+          <div className="flex-1 flex flex-col lg:flex-row gap-2 sm:gap-3 overflow-hidden min-h-0 w-full">
+            {/* Mobile Workspace Switcher (< lg): Eliminates 3-panel vertical crush on smartphones */}
+            <div className="flex lg:hidden items-center gap-1 hud-panel p-1 rounded-lg text-[11px] font-mono shrink-0">
+              <button
+                onClick={() => setMobileBenchPane('INSTRUMENTS')}
+                className={`flex-1 py-1.5 px-2 rounded-md text-center transition whitespace-nowrap ${
+                  mobileBenchPane === 'INSTRUMENTS'
+                    ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Instruments ({circuitSolution.supplyCurrentDrawAmps.toFixed(1)}A)
+              </button>
+              <button
+                onClick={() => setMobileBenchPane('CANVAS')}
+                className={`flex-1 py-1.5 px-2 rounded-md text-center transition whitespace-nowrap ${
+                  mobileBenchPane === 'CANVAS'
+                    ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Harness Canvas
+              </button>
+              <button
+                onClick={() => {
+                  setShowDiagnosticGuide(true);
+                  setMobileBenchPane('GUIDE');
+                }}
+                className={`flex-1 py-1.5 px-2 rounded-md text-center transition whitespace-nowrap ${
+                  mobileBenchPane === 'GUIDE'
+                    ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                5-Step Guide ({circuitSolution.activeDTCs.length} DTC)
+              </button>
+            </div>
+
             {/* Left Instrument Column with Ergonomic Filter Tabs */}
-            <div className="w-full lg:w-[370px] xl:w-[385px] flex flex-col gap-2.5 shrink-0 overflow-y-auto lg:overflow-hidden max-h-[50vh] lg:max-h-none">
+            <div
+              className={`w-full lg:w-[370px] xl:w-[385px] flex-col gap-2.5 shrink-0 overflow-hidden flex-1 lg:flex-initial min-h-0 ${
+                mobileBenchPane === 'INSTRUMENTS' ? 'flex' : 'hidden lg:flex'
+              }`}
+            >
               {/* Rack View Filter Tabs */}
               <div className="flex items-center gap-1 hud-panel p-1 rounded-lg text-[11px] font-mono shrink-0">
                 <button
@@ -544,7 +675,7 @@ export default function App() {
               </div>
 
               {/* Scrollable Instruments Area */}
-              <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3">
+              <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3 min-h-0">
                 {(rackFilter === 'ALL' || rackFilter === 'DMM_POWER') && (
                   <>
                     <BenchPowerSupply
@@ -582,49 +713,64 @@ export default function App() {
             </div>
 
             {/* Center: Live Interactive Wiring Canvas */}
-            <WiringCanvas
-              pins={pins}
-              wires={wires}
-              components={components}
-              nodeVoltages={circuitSolution.nodeVoltages}
-              selectedPinId={selectedPinId}
-              onSelectPin={setSelectedPinId}
-              onAddWire={handleAddWire}
-              onToggleCutWire={handleToggleCutWire}
-              onDeleteWire={handleDeleteWire}
-              multimeter={multimeter}
-              onAttachProbe={handleAttachProbe}
-              onUpdateComponentState={handleUpdateComponentState}
-              isPowerOn={powerSupply.isOutputEnabled}
-              onOpenEcuPinouts={handleOpenEcuPinouts}
-              simulationSpeed={simulationSpeed}
-            />
+            <div
+              className={`flex-1 min-h-0 min-w-0 flex-col overflow-hidden ${
+                mobileBenchPane === 'CANVAS' ? 'flex' : 'hidden lg:flex'
+              }`}
+            >
+              <WiringCanvas
+                pins={pins}
+                wires={wires}
+                components={components}
+                nodeVoltages={circuitSolution.nodeVoltages}
+                selectedPinId={selectedPinId}
+                onSelectPin={setSelectedPinId}
+                onAddWire={handleAddWire}
+                onToggleCutWire={handleToggleCutWire}
+                onDeleteWire={handleDeleteWire}
+                multimeter={multimeter}
+                onAttachProbe={handleAttachProbe}
+                onUpdateComponentState={handleUpdateComponentState}
+                isPowerOn={powerSupply.isOutputEnabled}
+                onOpenEcuPinouts={handleOpenEcuPinouts}
+                simulationSpeed={simulationSpeed}
+              />
+            </div>
 
             {/* Right: Collapsible 5-Step MNA-Synced Diagnostic Guide */}
-            <DiagnosticGuidePanel
-              isOpen={showDiagnosticGuide}
-              onClose={() => setShowDiagnosticGuide(false)}
-              powerSupply={powerSupply}
-              pins={pins}
-              wires={wires}
-              faults={faults}
-              activeDTCs={circuitSolution.activeDTCs}
-              nodeVoltages={circuitSolution.nodeVoltages}
-              supplyCurrentDrawAmps={circuitSolution.supplyCurrentDrawAmps}
-              isSupplyCurrentTripped={circuitSolution.isSupplyCurrentTripped}
-              multimeter={multimeter}
-              multimeterReading={circuitSolution.multimeterReading}
-              selectedPinId={selectedPinId}
-              onSelectPin={setSelectedPinId}
-              onNavigateTab={setActiveTab}
-              onOpenOfflineBot={handleOpenOfflineBot}
-            />
+            <div
+              className={`flex-1 lg:flex-initial min-h-0 flex-col overflow-hidden ${
+                mobileBenchPane === 'GUIDE' ? 'flex' : 'hidden lg:flex'
+              }`}
+            >
+              <DiagnosticGuidePanel
+                isOpen={showDiagnosticGuide || mobileBenchPane === 'GUIDE'}
+                onClose={() => {
+                  setShowDiagnosticGuide(false);
+                  setMobileBenchPane('INSTRUMENTS');
+                }}
+                powerSupply={powerSupply}
+                pins={pins}
+                wires={wires}
+                faults={faults}
+                activeDTCs={circuitSolution.activeDTCs}
+                nodeVoltages={circuitSolution.nodeVoltages}
+                supplyCurrentDrawAmps={circuitSolution.supplyCurrentDrawAmps}
+                isSupplyCurrentTripped={circuitSolution.isSupplyCurrentTripped}
+                multimeter={multimeter}
+                multimeterReading={circuitSolution.multimeterReading}
+                selectedPinId={selectedPinId}
+                onSelectPin={setSelectedPinId}
+                onNavigateTab={setActiveTab}
+                onOpenOfflineBot={handleOpenOfflineBot}
+              />
+            </div>
           </div>
         )}
 
         {/* TAB 2: WIRING DIAGRAM (Expanded Full-Screen Harness Engine) */}
         {activeTab === 'WIRING_DIAGRAM' && (
-          <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+          <div className="flex-1 min-h-0 min-w-0 flex flex-col gap-3 overflow-hidden w-full">
             <WiringCanvas
               pins={pins}
               wires={wires}
@@ -653,7 +799,7 @@ export default function App() {
 
         {/* TAB 2B: 3D BENCH TWIN (Three.js Interactive Hardware Twin) */}
         {activeTab === 'THREE_D_TWIN' && (
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden w-full">
             <Suspense fallback={<div className="flex-1 hud-panel rounded-xl flex items-center justify-center text-xs font-mono text-cyan-300">Initializing 3D ECU Bench Twin...</div>}>
               <ThreeBenchTwin
                 pins={pins}
@@ -679,7 +825,7 @@ export default function App() {
 
         {/* TAB 3: ECU CONNECTOR & BENCH TEST PINOUTS */}
         {activeTab === 'ECU_PINOUT' && (
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden w-full">
             <Suspense fallback={<div className="flex-1 flex items-center justify-center text-xs font-mono text-cyan-300">Loading ECU Pinouts Library...</div>}>
               <EcuConnectorPinouts
                 pins={pins}
@@ -709,7 +855,7 @@ export default function App() {
 
         {/* TAB 4: OSCILLOSCOPE */}
         {activeTab === 'OSCILLOSCOPE' && (
-          <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+          <div className="flex-1 min-h-0 min-w-0 flex flex-col gap-2.5 sm:gap-3 overflow-y-auto lg:overflow-hidden w-full">
             <Suspense fallback={<div className="h-[280px] hud-panel rounded-xl flex items-center justify-center text-xs font-mono text-cyan-300">Initializing Oscilloscope...</div>}>
               <Oscilloscope
                 isPowerOn={powerSupply.isOutputEnabled}
@@ -720,7 +866,7 @@ export default function App() {
               />
             </Suspense>
             {/* Split with Wiring Canvas for rapid testing */}
-            <div className="flex-1 min-h-[360px] overflow-hidden">
+            <div className="flex-1 min-h-[340px] sm:min-h-[360px] flex flex-col overflow-hidden">
               <WiringCanvas
                 pins={pins}
                 wires={wires}
@@ -743,7 +889,7 @@ export default function App() {
 
         {/* TAB 4: PCB & AI SCHEMATIC SCANNER */}
         {activeTab === 'PCB_SCANNER' && (
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden w-full">
             <Suspense fallback={<div className="flex-1 flex items-center justify-center text-xs font-mono text-cyan-300">Loading PCB Scanner...</div>}>
               <SchematicPcbScanner
                 nodeVoltages={circuitSolution.nodeVoltages}
@@ -760,7 +906,7 @@ export default function App() {
 
         {/* TAB 5: ECU REPAIR KNOWLEDGE BASE & MANUALS */}
         {activeTab === 'REPAIR_GUIDE' && (
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden w-full">
             <Suspense fallback={<div className="flex-1 flex items-center justify-center text-xs font-mono text-cyan-300">Loading Repair Knowledge Base...</div>}>
               <EcuRepairKnowledgeBase
                 savedSessions={savedSessions}
@@ -774,7 +920,7 @@ export default function App() {
       </div>
 
       {/* 3. Functional Bottom Probe & Quick-Action Bar */}
-      <footer className="min-h-10 hud-header border-t border-cyan-500/20 px-3 sm:px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-[11px] font-mono shrink-0 text-slate-400">
+      <footer className="min-h-9 hud-header border-t border-cyan-500/20 px-2.5 sm:px-4 py-1 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] font-mono shrink-0 text-slate-400">
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap truncate">
           <span className="truncate">
             TARGET:{' '}
@@ -878,6 +1024,22 @@ export default function App() {
             activeDTCs={circuitSolution.activeDTCs}
             supplyCurrentDrawAmps={circuitSolution.supplyCurrentDrawAmps}
             onLoadBenchSession={handleLoadBenchSession}
+          />
+        </Suspense>
+      )}
+
+      {/* Google Docs OEM Diagnostic Reports & Lab Notes Modal */}
+      {showDocsModal && (
+        <Suspense fallback={null}>
+          <GoogleDocsModal
+            isOpen={showDocsModal}
+            onClose={() => setShowDocsModal(false)}
+            powerSupply={powerSupply}
+            pins={pins}
+            wires={wires}
+            faults={faults}
+            multimeter={multimeter}
+            circuitSolution={circuitSolution}
           />
         </Suspense>
       )}

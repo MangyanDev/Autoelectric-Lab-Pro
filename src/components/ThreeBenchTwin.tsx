@@ -241,9 +241,9 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
         </div>
       )}
 
-      {/* Compact Top-Left 3D Terminal Inspector (Solid/rgba, zero backdrop-blur) */}
-      <div className="absolute top-3 left-3 z-10 w-72 sm:w-80 rounded-xl border border-cyan-500/30 bg-[#0b1222]/95 p-3 shadow-xl pointer-events-auto">
-        <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2 mb-2">
+      {/* Compact Top-Left 3D Terminal Inspector (Solid/rgba, zero backdrop-blur, responsive on mobile) */}
+      <div className="absolute top-2 sm:top-3 left-2 sm:left-3 right-2 sm:right-auto z-10 sm:w-80 rounded-xl border border-cyan-500/30 bg-[#0b1222]/95 p-2 sm:p-3 shadow-xl pointer-events-auto">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5 sm:pb-2 mb-1.5 sm:mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <Box className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             <span className="font-hud text-[11px] font-bold tracking-wider uppercase text-slate-100 truncate">
@@ -263,12 +263,12 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
             <div className="text-[10px] font-sans text-slate-400 truncate mt-0.5">
               {hoveredMeta?.subtitle ||
                 inspectedEcuPin?.description ||
-                'Drag to orbit · Scroll to zoom · Click any pin'}
+                'Drag to orbit · Pinch/Scroll to zoom · Tap any pin'}
             </div>
           </div>
           {inspectedVoltage !== null && (
             <div className="text-right shrink-0 font-mono">
-              <div className="text-sm font-bold text-amber-300 tabular-nums">
+              <div className="text-xs sm:text-sm font-bold text-amber-300 tabular-nums">
                 {inspectedVoltage.toFixed(2)} V
               </div>
               <div className="text-[9px] text-slate-500 uppercase">Live Node</div>
@@ -277,7 +277,7 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
         </div>
 
         {inspectedFault && inspectedFault.faultType !== 'NONE' && (
-          <div className="mt-2 rounded-lg border border-rose-500/40 bg-rose-950/80 px-2.5 py-1.5 text-[10px] font-mono text-rose-200 flex items-center justify-between gap-2">
+          <div className="mt-1.5 sm:mt-2 rounded-lg border border-rose-500/40 bg-rose-950/80 px-2.5 py-1 text-[10px] font-mono text-rose-200 flex items-center justify-between gap-2">
             <span className="truncate font-semibold">
               FAULT: {inspectedFault.faultType.replace(/_/g, ' ')}
             </span>
@@ -289,7 +289,7 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
 
         {/* Quick 3D Probe & Diagnostic Actions */}
         {inspectedPinId && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <button
               type="button"
               onClick={() => onAttachProbe('red', inspectedPinId, inspectedLabel)}
@@ -330,7 +330,7 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
 
         {/* Live 3D Throttle Butterfly Test Slider when TPS node is inspected */}
         {showTpsQuickSlider && (
-          <div className="mt-2.5 pt-2 border-t border-slate-800">
+          <div className="mt-2 pt-1.5 border-t border-slate-800">
             <div className="flex items-center justify-between text-[10px] font-mono text-slate-300 mb-1">
               <span>3D Throttle Butterfly Angle</span>
               <span className="text-cyan-300 font-bold tabular-nums">{tpsThrottlePct}%</span>
@@ -351,8 +351,8 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
         )}
       </div>
 
-      {/* Collapsible Bottom-Center Unified Control Dock (<=15% viewport footprint) */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center max-w-[min(940px,95vw)] pointer-events-auto">
+      {/* Collapsible Bottom-Center Unified Control Dock */}
+      <div className="absolute bottom-2 sm:bottom-3 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-20 flex flex-col items-center sm:max-w-[min(940px,95vw)] pointer-events-auto">
         <button
           type="button"
           onClick={() => setDockCollapsed((prev) => !prev)}
@@ -373,9 +373,9 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
         </button>
 
         {!dockCollapsed && (
-          <div className="w-full rounded-xl border border-cyan-500/35 bg-[#0b1222]/95 px-3 py-2 shadow-2xl flex flex-wrap items-center justify-center gap-3 text-[11px] font-mono">
+          <div className="w-full rounded-xl border border-cyan-500/35 bg-[#0b1222]/95 px-2 sm:px-3 py-1.5 sm:py-2 shadow-2xl flex flex-wrap items-center justify-center gap-1.5 sm:gap-3 text-[10px] sm:text-[11px] font-mono max-h-[26vh] overflow-y-auto">
             {/* Camera Presets */}
-            <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-lg border border-slate-800">
+            <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-lg border border-slate-800 overflow-x-auto scrollbar-none max-w-full">
               <Crosshair className="w-3.5 h-3.5 text-cyan-400 mx-1 shrink-0" />
               {(
                 [
@@ -389,7 +389,7 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
                   key={key}
                   type="button"
                   onClick={() => handlePresetClick(key)}
-                  className={`px-2 py-1 rounded text-[10px] transition whitespace-nowrap cursor-pointer ${
+                  className={`px-2 py-1 rounded text-[10px] transition whitespace-nowrap shrink-0 cursor-pointer ${
                     activePreset === key
                       ? 'bg-cyan-500 text-slate-950 font-bold'
                       : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -401,9 +401,9 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
             </div>
 
             {/* Explode ECU Housing Slider */}
-            <div className="flex items-center gap-2 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-slate-800">
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-900/90 px-2 sm:px-2.5 py-1 rounded-lg border border-slate-800">
               <Layers className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="text-[10px] text-slate-300 whitespace-nowrap">Explode ECU</span>
+              <span className="text-[10px] text-slate-300 whitespace-nowrap">Explode</span>
               <input
                 type="range"
                 min={0}
@@ -411,7 +411,7 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
                 value={Math.round(explodeAmount * 100)}
                 onChange={(e) => setExplodeAmount(Number(e.target.value) / 100)}
                 aria-label="Explode ECU Housing"
-                className="w-20 sm:w-24 accent-amber-400 cursor-pointer h-1.5"
+                className="w-16 sm:w-24 accent-amber-400 cursor-pointer h-1.5"
               />
               <span className="text-[10px] text-amber-300 font-bold tabular-nums w-8 text-right">
                 {Math.round(explodeAmount * 100)}%
@@ -419,11 +419,11 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
             </div>
 
             {/* Diagnostic Overlay Switcher */}
-            <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-lg border border-slate-800">
+            <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-lg border border-slate-800 overflow-x-auto scrollbar-none max-w-full">
               <button
                 type="button"
                 onClick={() => setOverlayMode('VOLTAGE')}
-                className={`px-2 py-1 rounded text-[10px] flex items-center gap-1 transition whitespace-nowrap cursor-pointer ${
+                className={`px-2 py-1 rounded text-[10px] flex items-center gap-1 transition whitespace-nowrap shrink-0 cursor-pointer ${
                   overlayMode === 'VOLTAGE'
                     ? 'bg-emerald-500 text-slate-950 font-bold'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -435,19 +435,19 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
               <button
                 type="button"
                 onClick={() => setOverlayMode('THERMAL')}
-                className={`px-2 py-1 rounded text-[10px] flex items-center gap-1 transition whitespace-nowrap cursor-pointer ${
+                className={`px-2 py-1 rounded text-[10px] flex items-center gap-1 transition whitespace-nowrap shrink-0 cursor-pointer ${
                   overlayMode === 'THERMAL'
                     ? 'bg-rose-500 text-white font-bold'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
               >
                 <Flame className="w-3 h-3" />
-                <span>Fault Thermal</span>
+                <span>Thermal</span>
               </button>
               <button
                 type="button"
                 onClick={() => setOverlayMode('WIRE_ID')}
-                className={`px-2 py-1 rounded text-[10px] flex items-center gap-1 transition whitespace-nowrap cursor-pointer ${
+                className={`px-2 py-1 rounded text-[10px] flex items-center gap-1 transition whitespace-nowrap shrink-0 cursor-pointer ${
                   overlayMode === 'WIRE_ID'
                     ? 'bg-cyan-500 text-slate-950 font-bold'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -465,11 +465,11 @@ const ThreeBenchTwinComponent: React.FC<ThreeBenchTwinProps> = ({
                 setExplodeAmount(0);
                 handlePresetClick('OVERVIEW');
               }}
-              className="px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-[10px] text-slate-200 flex items-center gap-1 transition cursor-pointer whitespace-nowrap"
+              className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-[10px] text-slate-200 flex items-center gap-1 transition cursor-pointer whitespace-nowrap"
               title="Reset 3D Camera & Enclosure"
             >
               <RotateCcw className="w-3 h-3" />
-              <span>Reset View</span>
+              <span>Reset</span>
             </button>
           </div>
         )}
