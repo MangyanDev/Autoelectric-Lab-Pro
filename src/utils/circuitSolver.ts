@@ -173,7 +173,9 @@ export function solveCircuit(
   net.addResistor('ecu-gnd-1', 'ecu-pin-1', 'chassis-gnd', 0.08);
   net.addResistor('ecu-gnd-2', 'ecu-pin-2', 'chassis-gnd', 0.08);
 
-  // Pin 3 (KL30) & Pin 4 (KL15): Internal ECU quiescent load
+  // Pin 3 (KL30) & Pin 4 (KL15): Fed from bench +12V supply with internal ECU quiescent load
+  net.addResistor('ecu-kl30-feed', 'bench-vbat', 'ecu-pin-3', 0.2);
+  net.addResistor('ecu-kl15-feed', 'bench-vbat', 'ecu-pin-4', 0.2);
   net.addResistor('ecu-kl30-load', 'ecu-pin-3', 'chassis-gnd', 1200);
   net.addResistor('ecu-kl15-load', 'ecu-pin-4', 'chassis-gnd', 1200);
 
@@ -224,16 +226,32 @@ export function solveCircuit(
   net.addVoltageSource('map-transducer', 'map-sig', 'map-gnd', isPowerOn ? mapModel.voltage : 0.0, 150);
   net.addResistor('map-vcc-load', 'map-vcc', 'map-gnd', 3500);
 
-  // Injector Solenoid
+  // Injector Solenoid (+12V feed from bench supply; low-side driver rests high in DC MNA while transient pulsing is generated in SignalGenerator)
+  net.addResistor('inj-vbat-feed', 'bench-vbat', 'inj-vbat', 0.1);
   net.addResistor('inj-coil', 'inj-vbat', 'inj-ctrl', 12.5);
-  // Injector low-side driver sink (switches to ground when ECU pulses)
-  if (isPowerOn) {
-    net.addResistor('inj-lowside-driver', 'ecu-pin-10', 'chassis-gnd', 0.15);
-  }
+  net.addResistor('inj-lowside-driver', 'ecu-pin-10', 'chassis-gnd', 10000);
 
-  // Main System Relay
+  // Pin 11: Ignition Coil 1 Trigger (5V logic output resting at 0.0V low state in DC quiescent mode)
+  net.addResistor('ecu-ign1-pd', 'ecu-pin-11', 'chassis-gnd', 100);
+
+  // Main System Relay & Pin 12 (MRELAY low-side coil control)
+  net.addResistor('relay-30-feed', 'bench-vbat', 'relay-30', 0.1);
+  net.addResistor('relay-86-feed', 'bench-vbat', 'relay-86', 0.1);
   net.addResistor('relay-coil', 'relay-86', 'relay-85', 85.0);
   net.addResistor('relay-contacts', 'relay-30', 'relay-87', 0.05);
+  net.addResistor('wire-mrelay', 'relay-85', 'ecu-pin-12', 0.05);
+  net.addResistor('ecu-mrelay-off', 'ecu-pin-12', 'chassis-gnd', 10000);
+
+  // Pin 15: Oxygen Sensor 1 Bank 1 (0.45V ECU stoichiometric bias reference)
+  if (isPowerOn) {
+    net.addVoltageSource('ecu-o2-bias', 'ecu-pin-15', 'chassis-gnd', 0.45, 10000);
+  } else {
+    net.addResistor('ecu-o2-off', 'ecu-pin-15', 'chassis-gnd', 100000);
+  }
+
+  // Pin 16: Fuel Pump Relay Driver (Fed through 85Ω fuel pump relay coil from +12V)
+  net.addResistor('fp-relay-coil', 'bench-vbat', 'ecu-pin-16', 85.0);
+  net.addResistor('ecu-fprelay-off', 'ecu-pin-16', 'chassis-gnd', 10000);
 
   // Cluster CAN Terminator (120Ω)
   net.addResistor('cluster-can-term', 'can-term-h', 'can-term-l', 120.0);

@@ -8,7 +8,7 @@ export interface PcbNormalizedBox {
 export interface ImageAnalysisPinSpec {
   pinNumber: number;
   pinName: string;
-  category: 'power' | 'ground' | 'signal_in' | 'driver_out' | 'bus';
+  category: 'power' | 'ground' | 'signal_in' | 'signal_out' | 'driver_out' | 'bus';
   nominalVoltage: number;
   connectedNetId: string;
   notes: string;

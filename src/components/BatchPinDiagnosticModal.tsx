@@ -56,43 +56,39 @@ export const BatchPinDiagnosticModal: React.FC<BatchPinDiagnosticModalProps> = (
   const [isRunning, setIsRunning] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [results, setResults] = useState<BatchPinResult[]>([]);
+  const nodeVoltagesRef = React.useRef(nodeVoltages);
+  nodeVoltagesRef.current = nodeVoltages;
 
-  // Initialize pending test batch list
+  // Initialize pending test batch list when modal opens
   useEffect(() => {
     if (isOpen) {
       const initial: BatchPinResult[] = pins.map((p) => {
         let expectedMin = 0;
         let expectedMax = 5;
-        const name = p.name.toUpperCase();
         const label = p.label.toUpperCase();
 
-        if (name.includes('KL30') || name.includes('VBAT') || label.includes('BAT')) {
-          expectedMin = 10.5;
-          expectedMax = 14.0;
-        } else if (name.includes('KL15') || label.includes('IGN')) {
-          expectedMin = 10.5;
-          expectedMax = 14.0;
-        } else if (name.includes('KL31') || label.includes('GND')) {
+        if (p.category === 'ground' || p.nominalVoltage === 0) {
           expectedMin = -0.2;
           expectedMax = 0.5;
-        } else if (name.includes('VREF') || name.includes('5V')) {
+        } else if (p.category === 'power' || p.nominalVoltage >= 11.0) {
+          expectedMin = 10.5;
+          expectedMax = 14.5;
+        } else if (p.category === 'reference' || Math.abs(p.nominalVoltage - 5.0) < 0.25) {
           expectedMin = 4.75;
           expectedMax = 5.25;
-        } else if (name.includes('CAN_H')) {
+        } else if (label.includes('CAN_H')) {
           expectedMin = 2.2;
           expectedMax = 3.8;
-        } else if (name.includes('CAN_L')) {
+        } else if (label.includes('CAN_L')) {
           expectedMin = 1.2;
           expectedMax = 2.8;
-        } else if (name.includes('INJ') || name.includes('COIL')) {
-          expectedMin = 10.0;
-          expectedMax = 14.0;
         } else {
-          expectedMin = 0.1;
-          expectedMax = 4.9;
+          // Analog sensor inputs (TPS, MAP, ECT, O2)
+          expectedMin = 0.15;
+          expectedMax = 4.85;
         }
 
-        const volts = nodeVoltages[p.id] ?? 0;
+        const volts = nodeVoltagesRef.current[p.id] ?? 0;
         return {
           pinId: p.id,
           pinNumber: p.pinNumber,
@@ -109,7 +105,7 @@ export const BatchPinDiagnosticModal: React.FC<BatchPinDiagnosticModalProps> = (
       setCurrentIndex(-1);
       setIsRunning(false);
     }
-  }, [isOpen, pins, nodeVoltages]);
+  }, [isOpen, pins]);
 
   const startBatchRun = () => {
     setIsRunning(true);
@@ -128,7 +124,7 @@ export const BatchPinDiagnosticModal: React.FC<BatchPinDiagnosticModalProps> = (
 
     const timer = setTimeout(() => {
       const pin = pins[currentIndex];
-      const volts = nodeVoltages[pin.id] ?? 0;
+      const volts = nodeVoltagesRef.current[pin.id] ?? 0;
 
       setResults((prev) => {
         const updated = [...prev];
@@ -151,7 +147,7 @@ export const BatchPinDiagnosticModal: React.FC<BatchPinDiagnosticModalProps> = (
     }, 120);
 
     return () => clearTimeout(timer);
-  }, [isRunning, currentIndex, pins, nodeVoltages]);
+  }, [isRunning, currentIndex, pins]);
 
   if (!isOpen) return null;
 
