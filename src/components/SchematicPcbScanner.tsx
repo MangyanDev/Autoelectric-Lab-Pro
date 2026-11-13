@@ -62,6 +62,8 @@ import {
   Sliders,
   Maximize2,
   RefreshCw,
+  Route,
+  X,
 } from 'lucide-react';
 
 // ============================================================================
@@ -122,7 +124,7 @@ export interface ComponentThermalProfile {
   dominantHeatSource: string;
 }
 
-type InteractionMode = 'EDIT' | 'PAN' | 'MACRO_CROP' | 'TRACE_EDIT';
+type InteractionMode = 'EDIT' | 'PAN' | 'MACRO_CROP' | 'TRACE_EDIT' | 'TRACE_PATH';
 
 type InteractionDrag =
   | {
@@ -1002,6 +1004,23 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
   const effectiveNetId = hoveredPinNetId || activeNetId;
   const [selectedPinNumber, setSelectedPinNumber] = useState<number | null>(5);
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
+  const [tracePathPair, setTracePathPair] = useState<[string | null, string | null]>([null, null]);
+
+  // Hovered Node Exact MNA Voltage Tooltip State
+  const [hoveredNodeTooltip, setHoveredNodeTooltip] = useState<{
+    nodeLabel: string;
+    compRefDes?: string;
+    pinNumber?: number;
+    pinName?: string;
+    netId: string;
+    mnaSourceNode: string;
+    detectedVoltage: number;
+    nominalVoltage: number;
+    category?: string;
+    notes?: string;
+    xNorm: number;
+    yNorm: number;
+  } | null>(null);
 
   // Filtering & UI Navigation State
   const [searchTerm, setSearchTerm] = useState('');
@@ -1015,6 +1034,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
   const [showComponents, setShowComponents] = useState(true);
   const [showNets, setShowNets] = useState(true);
   const [showPinMarkers, setShowPinMarkers] = useState(true);
+  const [showVoltageLabels, setShowVoltageLabels] = useState(true);
   const [showHotspots, setShowHotspots] = useState(true);
   const [showThermalHeatmap, setShowThermalHeatmap] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1.0);
@@ -1071,75 +1091,134 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
   // ============================================================================
 
   /**
+   * Resolves both the exact MNA-solved voltage and the mapped MNA circuit node ID
+   * for any PCB net or component pin node.
+   */
+  const resolveMnaNodeDetails = useCallback(
+    (
+      netName: string | undefined,
+      fallbackNominal: number
+    ): { voltage: number; mnaNodeId: string } => {
+      const isPowered = powerSupply?.isOutputEnabled ?? true;
+      if (!isPowered) {
+        return { voltage: 0.0, mnaNodeId: 'bench-vbat (OFF · 0.000V)' };
+      }
+
+      const benchVoltage =
+        nodeVoltages && typeof nodeVoltages['bench-vbat'] === 'number'
+          ? nodeVoltages['bench-vbat']
+          : (powerSupply?.voltageSetting ?? 12.6);
+
+      if (netName) {
+        if (nodeVoltages && typeof nodeVoltages[netName] === 'number') {
+          return { voltage: nodeVoltages[netName], mnaNodeId: netName };
+        }
+        const upper = netName.toUpperCase();
+
+        if (upper.includes('GND') || upper.includes('KL31')) {
+          const vGnd =
+            nodeVoltages && typeof nodeVoltages['ecu-pin-1'] === 'number'
+              ? nodeVoltages['ecu-pin-1']
+              : 0.0;
+          return { voltage: vGnd, mnaNodeId: 'ecu-pin-1 (KL31 Chassis GND)' };
+        }
+
+        if (upper.includes('RAW_KL30')) {
+          const vKl30 =
+            nodeVoltages && typeof nodeVoltages['ecu-pin-3'] === 'number'
+              ? nodeVoltages['ecu-pin-3']
+              : benchVoltage;
+          return { voltage: vKl30, mnaNodeId: 'ecu-pin-3 (KL30 Battery +12V)' };
+        }
+
+        if (upper.includes('KL30') || upper.includes('VBAT')) {
+          const vKl30 =
+            nodeVoltages && typeof nodeVoltages['ecu-pin-3'] === 'number'
+              ? nodeVoltages['ecu-pin-3']
+              : benchVoltage;
+          const vProtected = vKl30 > 0.35 ? Math.max(0, vKl30 - 0.35) : 0.0;
+          return {
+            voltage: vProtected,
+            mnaNodeId: 'ecu-pin-3 (KL30 − 0.35V D1 Schottky)',
+          };
+        }
+
+        if (
+          upper.includes('5V') ||
+          upper.includes('VREF_5V') ||
+          upper.includes('REGULATED') ||
+          upper.includes('MCU_RESET') ||
+          upper.includes('MCU_TX') ||
+          upper.includes('MCU_RX')
+        ) {
+          if (nodeVoltages && typeof nodeVoltages['ecu-pin-5'] === 'number') {
+            return {
+              voltage: nodeVoltages['ecu-pin-5'],
+              mnaNodeId: 'ecu-pin-5 (VREF_5V LDO Rail)',
+            };
+          }
+          const vIn = benchVoltage > 0.35 ? benchVoltage - 0.35 : 0;
+          const vReg = vIn >= 5.25 ? 5.0 : vIn > 0.5 ? Math.max(0, vIn - 0.25) : 0.0;
+          return { voltage: vReg, mnaNodeId: 'ecu-pin-5 (VREF_5V LDO Rail)' };
+        }
+
+        if (upper.includes('DELAY_CAP')) {
+          const v5 =
+            nodeVoltages && typeof nodeVoltages['ecu-pin-5'] === 'number'
+              ? nodeVoltages['ecu-pin-5']
+              : 5.0;
+          return {
+            voltage: +(v5 * 0.42).toFixed(3),
+            mnaNodeId: 'U1-D (TLE4275G Delay Threshold)',
+          };
+        }
+
+        if (upper.includes('CAN_HIGH') || upper.includes('CANH')) {
+          const vCanH =
+            nodeVoltages && typeof nodeVoltages['ecu-pin-13'] === 'number'
+              ? nodeVoltages['ecu-pin-13']
+              : fallbackNominal;
+          return { voltage: vCanH, mnaNodeId: 'ecu-pin-13 (CAN_H Bus Node)' };
+        }
+
+        if (upper.includes('CAN_LOW') || upper.includes('CANL')) {
+          const vCanL =
+            nodeVoltages && typeof nodeVoltages['ecu-pin-14'] === 'number'
+              ? nodeVoltages['ecu-pin-14']
+              : fallbackNominal;
+          return { voltage: vCanL, mnaNodeId: 'ecu-pin-14 (CAN_L Bus Node)' };
+        }
+
+        if (upper.includes('CAN_SPLIT')) {
+          const vCanH =
+            nodeVoltages && typeof nodeVoltages['ecu-pin-13'] === 'number'
+              ? nodeVoltages['ecu-pin-13']
+              : 2.5;
+          const vCanL =
+            nodeVoltages && typeof nodeVoltages['ecu-pin-14'] === 'number'
+              ? nodeVoltages['ecu-pin-14']
+              : 2.5;
+          return {
+            voltage: +((vCanH + vCanL) * 0.5).toFixed(3),
+            mnaNodeId: '0.5 × (ecu-pin-13 + ecu-pin-14) Split Tap',
+          };
+        }
+      }
+
+      return { voltage: fallbackNominal, mnaNodeId: netName || 'Local PCB Node' };
+    },
+    [nodeVoltages, powerSupply]
+  );
+
+  /**
    * Resolves the real-time voltage of a PCB net by bridging bench MNA nodeVoltages
    * and powerSupply state with the board's nominal net specification.
    */
   const resolveLiveNetVoltage = useCallback(
     (netName: string | undefined, fallbackNominal: number): number => {
-      const isPowered = powerSupply?.isOutputEnabled ?? true;
-      if (!isPowered) return 0.0;
-
-      const benchVoltage = powerSupply?.voltageSetting ?? 12.6;
-
-      if (netName) {
-        // Direct lookup in MNA nodeVoltages if present
-        if (nodeVoltages && typeof nodeVoltages[netName] === 'number') {
-          return nodeVoltages[netName];
-        }
-        const upper = netName.toUpperCase();
-        if (upper.includes('GND') || upper.includes('KL31')) {
-          if (nodeVoltages && typeof nodeVoltages['ecu-pin-1'] === 'number') {
-            return nodeVoltages['ecu-pin-1'];
-          }
-          return 0.0;
-        }
-        if (upper.includes('RAW_KL30')) {
-          return benchVoltage;
-        }
-        if (upper.includes('KL30') || upper.includes('VBAT')) {
-          if (nodeVoltages && typeof nodeVoltages['ecu-pin-3'] === 'number') {
-            return Math.max(0, nodeVoltages['ecu-pin-3'] - 0.35);
-          }
-          if (nodeVoltages && typeof nodeVoltages['KL30'] === 'number') {
-            return Math.max(0, nodeVoltages['KL30'] - 0.35);
-          }
-          // Account for B540C Schottky forward drop (~0.35V) when forward biased
-          return benchVoltage > 0.35 ? +(benchVoltage - 0.35).toFixed(2) : 0.0;
-        }
-        if (upper.includes('5V') || upper.includes('VREF_5V') || upper.includes('REGULATED')) {
-          if (nodeVoltages && typeof nodeVoltages['ecu-pin-5'] === 'number') {
-            return nodeVoltages['ecu-pin-5'];
-          }
-          if (nodeVoltages && typeof nodeVoltages['VREF_5V'] === 'number') {
-            return nodeVoltages['VREF_5V'];
-          }
-          // TLE4275G LDO regulation with 250mV dropout behavior
-          const vIn = benchVoltage > 0.35 ? benchVoltage - 0.35 : 0;
-          if (vIn >= 5.25) return 5.0;
-          if (vIn > 0.5) return +(vIn - 0.25).toFixed(2);
-          return 0.0;
-        }
-        if (upper.includes('CAN_HIGH') || upper.includes('CANH')) {
-          if (nodeVoltages && typeof nodeVoltages['ecu-pin-13'] === 'number') {
-            return nodeVoltages['ecu-pin-13'];
-          }
-          if (nodeVoltages && typeof nodeVoltages['CAN_H'] === 'number') {
-            return nodeVoltages['CAN_H'];
-          }
-        }
-        if (upper.includes('CAN_LOW') || upper.includes('CANL')) {
-          if (nodeVoltages && typeof nodeVoltages['ecu-pin-14'] === 'number') {
-            return nodeVoltages['ecu-pin-14'];
-          }
-          if (nodeVoltages && typeof nodeVoltages['CAN_L'] === 'number') {
-            return nodeVoltages['CAN_L'];
-          }
-        }
-      }
-
-      return fallbackNominal;
+      return resolveMnaNodeDetails(netName, fallbackNominal).voltage;
     },
-    [nodeVoltages, powerSupply]
+    [resolveMnaNodeDetails]
   );
 
   /**
@@ -1337,6 +1416,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
     setActiveNetId(board.nets[0]?.name || null);
     setSelectedPinNumber(board.components[0]?.pinSpecs?.[0]?.pinNumber || 1);
     setSelectedHotspotId(null);
+    setTracePathPair([null, null]);
     setStatusMessage(`Loaded OEM Reference Preset: ${board.name}`);
   };
 
@@ -1354,6 +1434,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
     setIsAnalyzing(true);
     setInteractionMode('EDIT');
     setCropMarquee(null);
+    setTracePathPair([null, null]);
     setStatusMessage('PHASE 1/2: Running Local Sobel/Pad CV & optimizing photo...');
 
     try {
@@ -1966,6 +2047,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
     setBoardAspect(1.5);
     setSelectedCompRef(scan.components?.[0]?.refDes || null);
     setActiveNetId(scan.nets?.[0]?.name || null);
+    setTracePathPair([null, null]);
     setShowSavedScansPanel(false);
     setStatusMessage(`Loaded Cloud PCB Map: ${scan.title} (${scan.components?.length || 0} components)`);
   };
@@ -2088,6 +2170,196 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
       };
     }
   };
+
+  const handleSelectTracePathComponent = useCallback(
+    (refDes: string) => {
+      setTracePathPair((prev) => {
+        const [first, second] = prev;
+        if (!first || (first && second)) {
+          setStatusMessage(
+            `TRACE PATH [A = ${refDes}]: Click a second component [B], then hover any node to trace continuous path.`
+          );
+          return [refDes, null];
+        }
+        if (first === refDes) {
+          setStatusMessage(
+            `TRACE PATH [A = ${refDes}]: Pick a different second component [B] to complete the trace pair.`
+          );
+          return prev;
+        }
+        setStatusMessage(
+          `TRACE PATH READY [${first} ↔ ${refDes}]: Hover over any pin or trace node to highlight continuous line.`
+        );
+        return [first, refDes];
+      });
+    },
+    []
+  );
+
+  // Computes continuous orthogonal trace path between two clicked components when hovering any node
+  const highlightedContinuousPath = useMemo(() => {
+    const [refA, refB] = tracePathPair;
+    if (!refA || !refB || !hoveredNodeTooltip) return null;
+
+    const compA = components.find((c) => c.refDes === refA);
+    const compB = components.find((c) => c.refDes === refB);
+    if (!compA || !compB) return null;
+
+    const hoverPt: TracePoint = {
+      x: Math.round(hoveredNodeTooltip.xNorm),
+      y: Math.round(hoveredNodeTooltip.yNorm),
+    };
+
+    const getComponentPinOrCenter = (
+      comp: DetailedPcbComponent,
+      preferredNetId?: string | null
+    ): TracePoint => {
+      const pins = comp.pinSpecs || [];
+      if (preferredNetId && pins.length > 0) {
+        const idx = pins.findIndex((p) => p.connectedNetId === preferredNetId);
+        if (idx >= 0) {
+          return computeComponentPinCoords(comp, idx, pins.length);
+        }
+      }
+      return getBoxCenter(comp.bbox);
+    };
+
+    const buildOrthogonalSegment = (from: TracePoint, to: TracePoint): TracePoint[] => {
+      const dx = Math.abs(to.x - from.x);
+      const dy = Math.abs(to.y - from.y);
+      if (dx <= 2 || dy <= 2) {
+        return [from, to];
+      }
+      if (dx >= dy) {
+        const midX = Math.round((from.x + to.x) / 2);
+        return [from, { x: midX, y: from.y }, { x: midX, y: to.y }, to];
+      }
+      const midY = Math.round((from.y + to.y) / 2);
+      return [from, { x: from.x, y: midY }, { x: to.x, y: midY }, to];
+    };
+
+    // Build netlist adjacency graph (component <-> component via net)
+    type NetEdge = { toRef: string; netName: string };
+    const adjacency = new Map<string, NetEdge[]>();
+    const validRefs = new Set(components.map((c) => c.refDes));
+
+    for (const net of nets) {
+      const members = new Set<string>();
+      for (const r of net.connectedComponentRefs || []) {
+        if (validRefs.has(r)) members.add(r);
+      }
+      for (const c of components) {
+        if (c.pinSpecs?.some((p) => p.connectedNetId === net.name)) {
+          members.add(c.refDes);
+        }
+      }
+      const memberList = Array.from(members);
+      for (let i = 0; i < memberList.length; i++) {
+        for (let j = 0; j < memberList.length; j++) {
+          if (i === j) continue;
+          const u = memberList[i];
+          const v = memberList[j];
+          if (!adjacency.has(u)) adjacency.set(u, []);
+          adjacency.get(u)!.push({ toRef: v, netName: net.name });
+        }
+      }
+    }
+
+    // Prioritize edges matching the currently hovered node's net
+    for (const [, edges] of adjacency) {
+      edges.sort((e1, e2) => {
+        const m1 = e1.netName === hoveredNodeTooltip.netId ? 0 : 1;
+        const m2 = e2.netName === hoveredNodeTooltip.netId ? 0 : 1;
+        return m1 - m2;
+      });
+    }
+
+    // BFS shortest path from compA to compB
+    type BfsStep = { refDes: string; viaNet: string | null };
+    const queue: BfsStep[][] = [[{ refDes: compA.refDes, viaNet: null }]];
+    const visited = new Set<string>([compA.refDes]);
+    let foundChain: BfsStep[] | null = null;
+
+    while (queue.length > 0) {
+      const path = queue.shift()!;
+      const tail = path[path.length - 1];
+      if (tail.refDes === compB.refDes) {
+        foundChain = path;
+        break;
+      }
+      for (const edge of adjacency.get(tail.refDes) || []) {
+        if (!visited.has(edge.toRef)) {
+          visited.add(edge.toRef);
+          queue.push([...path, { refDes: edge.toRef, viaNet: edge.netName }]);
+        }
+      }
+    }
+
+    const traversedNets = foundChain
+      ? Array.from(new Set(foundChain.map((s) => s.viaNet).filter((n): n is string => Boolean(n))))
+      : [];
+    const isHoveredNetOnChain = Boolean(
+      hoveredNodeTooltip.netId && traversedNets.includes(hoveredNodeTooltip.netId)
+    );
+
+    const anchorA = getComponentPinOrCenter(
+      compA,
+      foundChain?.[1]?.viaNet || hoveredNodeTooltip.netId
+    );
+    const anchorB = getComponentPinOrCenter(
+      compB,
+      foundChain?.[foundChain.length - 1]?.viaNet || hoveredNodeTooltip.netId
+    );
+
+    const rawPoints: TracePoint[] = [];
+    const appendSegment = (seg: TracePoint[]) => {
+      for (const pt of seg) {
+        const last = rawPoints[rawPoints.length - 1];
+        if (!last || Math.abs(last.x - pt.x) > 1 || Math.abs(last.y - pt.y) > 1) {
+          rawPoints.push(pt);
+        }
+      }
+    };
+
+    if (foundChain && foundChain.length >= 2 && isHoveredNetOnChain) {
+      // Trace through verified netlist hops and route through the hovered node on its matching net hop
+      let hoverInserted = false;
+      for (let i = 0; i < foundChain.length - 1; i++) {
+        const curComp = components.find((c) => c.refDes === foundChain[i].refDes)!;
+        const nxtComp = components.find((c) => c.refDes === foundChain[i + 1].refDes)!;
+        const hopNet = foundChain[i + 1].viaNet;
+        const pStart = i === 0 ? anchorA : getComponentPinOrCenter(curComp, hopNet);
+        const pEnd =
+          i + 1 === foundChain.length - 1 ? anchorB : getComponentPinOrCenter(nxtComp, hopNet);
+
+        if (!hoverInserted && hopNet === hoveredNodeTooltip.netId) {
+          appendSegment(buildOrthogonalSegment(pStart, hoverPt));
+          appendSegment(buildOrthogonalSegment(hoverPt, pEnd));
+          hoverInserted = true;
+        } else {
+          appendSegment(buildOrthogonalSegment(pStart, pEnd));
+        }
+      }
+    } else {
+      // Continuous orthogonal trace linking Component A -> Hovered Node -> Component B
+      appendSegment(buildOrthogonalSegment(anchorA, hoverPt));
+      appendSegment(buildOrthogonalSegment(hoverPt, anchorB));
+    }
+
+    return {
+      compA: compA.refDes,
+      compB: compB.refDes,
+      anchorA,
+      anchorB,
+      hoverPt,
+      points: rawPoints,
+      pointsStr: rawPoints.map((p) => `${p.x},${p.y}`).join(' '),
+      traversedNets,
+      isNetVerified: Boolean(foundChain && isHoveredNetOnChain),
+      hoveredNodeLabel: hoveredNodeTooltip.nodeLabel,
+      hoveredNetId: hoveredNodeTooltip.netId,
+    };
+  }, [tracePathPair, hoveredNodeTooltip, components, nets]);
 
   // Aspect-locked board dimensions so 0..1000 coordinates match photo pixels 1:1
   const boardWidthPx = Math.round(740 * zoomLevel);
@@ -2295,8 +2567,9 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
             mobileTab === 'CANVAS' ? 'flex' : 'hidden md:flex'
           }`}
         >
-          {/* HUD Layer & Tool Controls */}
-          <div className="absolute top-2.5 left-2.5 z-30 flex flex-wrap items-center gap-1 hud-panel p-1 rounded-lg text-[11px] text-slate-300 shadow-lg border border-slate-800/90">
+          {/* HUD Layer & Tool Controls + Trace Path Status Stack */}
+          <div className="absolute top-2.5 left-2.5 right-36 z-40 flex flex-col items-start gap-1.5 pointer-events-none">
+            <div className="pointer-events-auto flex flex-wrap items-center gap-1 hud-panel p-1 rounded-lg text-[11px] text-slate-300 shadow-lg border border-slate-800/90">
             <button
               onClick={() => setInteractionMode('EDIT')}
               className={`px-2 py-0.5 rounded flex items-center gap-1 transition ${
@@ -2330,6 +2603,33 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
             >
               <Waypoints className="w-3 h-3" />
               <span>Edit Traces</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setInteractionMode((m) => {
+                  const next = m === 'TRACE_PATH' ? 'EDIT' : 'TRACE_PATH';
+                  if (next === 'TRACE_PATH') {
+                    setStatusMessage(
+                      tracePathPair[0] && tracePathPair[1]
+                        ? `TRACE PATH ACTIVE [${tracePathPair[0]} ↔ ${tracePathPair[1]}]: Hover any node to trace path, or click 2 new components.`
+                        : 'TRACE PATH MODE: Click two components on the PCB, then hover over any node to trace a continuous line.'
+                    );
+                  }
+                  return next;
+                });
+              }}
+              className={`px-2 py-0.5 rounded flex items-center gap-1 transition ${
+                interactionMode === 'TRACE_PATH'
+                  ? 'bg-fuchsia-600 text-white font-bold shadow-[0_0_12px_rgba(217,70,239,0.55)]'
+                  : tracePathPair[0] && tracePathPair[1]
+                  ? 'bg-fuchsia-950 text-fuchsia-300 border border-fuchsia-500/60 font-bold'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Click 2 components, then hover any node to highlight a continuous trace path between them (Tip: Shift+Click in Edit mode also selects)"
+            >
+              <Route className="w-3 h-3" />
+              <span>Highlight Trace Path</span>
             </button>
 
             <button
@@ -2386,9 +2686,22 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
               className={`px-2 py-0.5 rounded flex items-center gap-1 transition ${
                 showPinMarkers ? 'bg-slate-800 text-amber-300 font-bold' : 'text-slate-500'
               }`}
+              title="Toggle Physical Solder Pads & Trace Nodes"
             >
               <Disc className="w-3 h-3" />
               <span>Pins</span>
+            </button>
+            <button
+              onClick={() => setShowVoltageLabels(!showVoltageLabels)}
+              className={`px-2 py-0.5 rounded flex items-center gap-1 transition ${
+                showVoltageLabels
+                  ? 'bg-emerald-950 text-emerald-300 font-bold border border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Automatically label component nodes with live MNA solver voltages"
+            >
+              <Zap className="w-3 h-3 text-emerald-400" />
+              <span>MNA V-Labels</span>
             </button>
             <button
               onClick={() => setShowThermalHeatmap(!showThermalHeatmap)}
@@ -2402,10 +2715,64 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
               <Thermometer className="w-3 h-3 text-rose-400" />
               <span>IR Thermal</span>
             </button>
+            </div>
+
+            {/* Trace Path Two-Component Pair Status Bar */}
+            {(interactionMode === 'TRACE_PATH' || tracePathPair[0] !== null) && (
+              <div className="pointer-events-auto bg-slate-950/95 backdrop-blur-md border border-fuchsia-500/60 rounded-lg px-2.5 py-1.5 text-[10.5px] font-mono text-slate-200 shadow-xl flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1 text-fuchsia-300 font-bold">
+                  <Route className="w-3.5 h-3.5 text-fuchsia-400" />
+                  <span>TRACE PATH:</span>
+                </div>
+                <span
+                  className={`px-1.5 py-0.5 rounded border text-[10px] font-bold ${
+                    tracePathPair[0]
+                      ? 'bg-fuchsia-950/90 border-fuchsia-400 text-fuchsia-200'
+                      : 'bg-slate-900 border-slate-700 text-slate-500'
+                  }`}
+                >
+                  A: {tracePathPair[0] || 'Click Comp 1'}
+                </span>
+                <span className="text-fuchsia-400 font-bold">↔</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded border text-[10px] font-bold ${
+                    tracePathPair[1]
+                      ? 'bg-cyan-950/90 border-cyan-400 text-cyan-200'
+                      : 'bg-slate-900 border-slate-700 text-slate-500'
+                  }`}
+                >
+                  B: {tracePathPair[1] || 'Click Comp 2'}
+                </span>
+                <span className="text-[10px] font-sans text-slate-300">
+                  {highlightedContinuousPath
+                    ? `Tracing via ${highlightedContinuousPath.hoveredNodeLabel} (${
+                        highlightedContinuousPath.isNetVerified
+                          ? highlightedContinuousPath.traversedNets.join(' → ')
+                          : 'Direct Node Route'
+                      })`
+                    : tracePathPair[0] && tracePathPair[1]
+                    ? 'Hover over any pin or trace node to highlight continuous line'
+                    : 'Click 2 components on the board (or Shift+Click in Edit mode)'}
+                </span>
+                {(tracePathPair[0] || tracePathPair[1]) && (
+                  <button
+                    onClick={() => {
+                      setTracePathPair([null, null]);
+                      setStatusMessage('Cleared Trace Path component pair.');
+                    }}
+                    className="ml-1 px-1.5 py-0.5 rounded bg-slate-900 hover:bg-rose-950 border border-slate-700 hover:border-rose-500/60 text-slate-300 hover:text-rose-200 flex items-center gap-0.5 text-[9.5px] transition"
+                    title="Clear selected trace path components"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                    <span>Clear</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Zoom controls */}
-          <div className="absolute top-2.5 right-2.5 z-30 flex items-center gap-1 hud-panel p-1 rounded-lg border border-slate-800/90 shadow-lg">
+          <div className="absolute top-2.5 right-2.5 z-40 flex items-center gap-1 hud-panel p-1 rounded-lg border border-slate-800/90 shadow-lg">
             <button
               onClick={() => setZoomLevel((prev) => Math.max(0.55, +(prev - 0.15).toFixed(2)))}
               className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
@@ -2434,7 +2801,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
 
           {/* Active Net Live Telemetry Banner */}
           {activeNetObject && (
-            <div className="absolute bottom-3 right-3 z-30 bg-slate-950/90 backdrop-blur-md border border-cyan-500/50 rounded-xl px-3 py-2 text-[10.5px] font-mono text-slate-200 shadow-2xl flex items-center gap-3">
+            <div className="absolute bottom-3 right-3 z-40 bg-slate-950/90 backdrop-blur-md border border-cyan-500/50 rounded-xl px-3 py-2 text-[10.5px] font-mono text-slate-200 shadow-2xl flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <span
                   className="w-2.5 h-2.5 rounded-full animate-pulse"
@@ -2718,64 +3085,174 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                         {/* Interactive Solder Pads / Trace Vertices */}
                         {showPinMarkers &&
                           branches.map((branch, bIdx) =>
-                            branch.map((p, pIdx) => (
-                              <circle
-                                key={`${net.name}-pt-${bIdx}-${pIdx}`}
-                                cx={p.x}
-                                cy={p.y}
-                                r={interactionMode === 'TRACE_EDIT' ? '11' : isNetActive ? '8.5' : '5.5'}
-                                fill={
-                                  interactionMode === 'TRACE_EDIT'
-                                    ? '#fde047'
-                                    : isNetActive
-                                    ? '#00f3ff'
-                                    : neonColor
-                                }
-                                stroke="#0f172a"
-                                strokeWidth="2.5"
-                                onPointerDown={(e) => {
-                                  if (interactionMode !== 'TRACE_EDIT' || !boardRef.current) return;
-                                  e.stopPropagation();
-                                  setActiveNetId(net.name);
-                                  dragRef.current = {
-                                    type: 'MOVE_TRACE_NODE',
-                                    netName: net.name,
-                                    branchIndex: net.traceBranches ? bIdx : undefined,
-                                    pointIndex: pIdx,
-                                    boardRect: boardRef.current.getBoundingClientRect(),
-                                  };
-                                }}
-                                className={
-                                  interactionMode === 'TRACE_EDIT'
-                                    ? 'cursor-move hover:scale-125 transition-transform'
-                                    : ''
-                                }
-                              />
-                            ))
+                            branch.map((p, pIdx) => {
+                              const mnaInfo = resolveMnaNodeDetails(
+                                net.name,
+                                net.nominalVoltage ?? 5.0
+                              );
+                              return (
+                                <circle
+                                  key={`${net.name}-pt-${bIdx}-${pIdx}`}
+                                  cx={p.x}
+                                  cy={p.y}
+                                  r={interactionMode === 'TRACE_EDIT' ? '11' : isNetActive ? '8.5' : '5.5'}
+                                  fill={
+                                    interactionMode === 'TRACE_EDIT'
+                                      ? '#fde047'
+                                      : isNetActive
+                                      ? '#00f3ff'
+                                      : neonColor
+                                  }
+                                  stroke="#0f172a"
+                                  strokeWidth="2.5"
+                                  onMouseEnter={() => {
+                                    setHoveredPinNetId(net.name);
+                                    setHoveredNodeTooltip({
+                                      nodeLabel: `Trace Junction Node #${pIdx + 1}`,
+                                      netId: net.name,
+                                      mnaSourceNode: mnaInfo.mnaNodeId,
+                                      detectedVoltage: mnaInfo.voltage,
+                                      nominalVoltage: net.nominalVoltage ?? mnaInfo.voltage,
+                                      category: net.signalType,
+                                      notes: `Connected components: ${net.connectedComponentRefs.join(', ') || 'None'}`,
+                                      xNorm: p.x,
+                                      yNorm: p.y,
+                                    });
+                                  }}
+                                  onMouseLeave={() => {
+                                    setHoveredPinNetId(null);
+                                    setHoveredNodeTooltip(null);
+                                  }}
+                                  onPointerDown={(e) => {
+                                    if (interactionMode !== 'TRACE_EDIT' || !boardRef.current) return;
+                                    e.stopPropagation();
+                                    setActiveNetId(net.name);
+                                    dragRef.current = {
+                                      type: 'MOVE_TRACE_NODE',
+                                      netName: net.name,
+                                      branchIndex: net.traceBranches ? bIdx : undefined,
+                                      pointIndex: pIdx,
+                                      boardRect: boardRef.current.getBoundingClientRect(),
+                                    };
+                                  }}
+                                  className={
+                                    interactionMode === 'TRACE_EDIT'
+                                      ? 'cursor-move hover:scale-125 transition-transform'
+                                      : 'cursor-pointer'
+                                  }
+                                >
+                                  <title>{`${net.name} Node #${pIdx + 1}: ${mnaInfo.voltage.toFixed(3)} V DC (MNA: ${mnaInfo.mnaNodeId})`}</title>
+                                </circle>
+                              );
+                            })
                           )}
                       </g>
                     );
                   })}
 
-                  {/* Physical Component Edge Pin Solder Pads */}
+                  {/* Physical Component Edge Pin Solder Pads & Automatic MNA Voltage Callouts */}
                   {showPinMarkers &&
                     components.map((comp) => {
                       const pins = comp.pinSpecs || [];
                       return pins.map((pin, idx) => {
                         const pt = computeComponentPinCoords(comp, idx, pins.length);
                         const isPinNetActive = effectiveNetId === pin.connectedNetId;
+                        const mnaDetails = resolveMnaNodeDetails(
+                          pin.connectedNetId,
+                          pin.nominalVoltage
+                        );
+                        const isLeftEdge = pt.x <= comp.bbox.xmin + 10;
+                        const labelX = isLeftEdge ? pt.x - 44 : pt.x + 10;
+                        const labelY = pt.y - 8;
+
                         return (
-                          <g key={`pad-${comp.refDes}-${pin.pinNumber}`}>
+                          <g
+                            key={`pad-${comp.refDes}-${pin.pinNumber}`}
+                            className="pointer-events-auto cursor-pointer"
+                            onMouseEnter={() => {
+                              if (pin.connectedNetId && pin.connectedNetId !== 'NET_UNASSIGNED') {
+                                setHoveredPinNetId(pin.connectedNetId);
+                              }
+                              setHoveredNodeTooltip({
+                                nodeLabel: `${comp.refDes} · Pin #${pin.pinNumber} (${pin.pinName})`,
+                                compRefDes: comp.refDes,
+                                pinNumber: pin.pinNumber,
+                                pinName: pin.pinName,
+                                netId: pin.connectedNetId,
+                                mnaSourceNode: mnaDetails.mnaNodeId,
+                                detectedVoltage: mnaDetails.voltage,
+                                nominalVoltage: pin.nominalVoltage,
+                                category: pin.category,
+                                notes: pin.notes,
+                                xNorm: pt.x,
+                                yNorm: pt.y,
+                              });
+                            }}
+                            onMouseLeave={() => {
+                              setHoveredPinNetId(null);
+                              setHoveredNodeTooltip(null);
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (interactionMode === 'TRACE_PATH' || e.shiftKey) {
+                                handleSelectTracePathComponent(comp.refDes);
+                                return;
+                              }
+                              setSelectedCompRef(comp.refDes);
+                              setSelectedPinNumber(pin.pinNumber);
+                              setActiveNetId(pin.connectedNetId);
+                              setInspectorSubTab('PART');
+                            }}
+                          >
+                            <title>{`${comp.refDes} Pin #${pin.pinNumber} (${pin.pinName}) — Detected MNA Voltage: ${mnaDetails.voltage.toFixed(3)} V DC (Nominal: ${pin.nominalVoltage.toFixed(2)} V) | Net: ${pin.connectedNetId}`}</title>
                             <rect
-                              x={pt.x - 6}
-                              y={pt.y - 4}
-                              width="12"
-                              height="8"
-                              rx="2"
-                              fill={isPinNetActive ? '#00f3ff' : '#cbd5e1'}
+                              x={pt.x - 7}
+                              y={pt.y - 5}
+                              width="14"
+                              height="10"
+                              rx="2.5"
+                              fill={isPinNetActive ? '#00f3ff' : '#e2e8f0'}
                               stroke="#0f172a"
-                              strokeWidth="1.5"
+                              strokeWidth="1.8"
                             />
+                            {showVoltageLabels && (
+                              <g>
+                                <rect
+                                  x={labelX}
+                                  y={labelY}
+                                  width="36"
+                                  height="15"
+                                  rx="3"
+                                  fill={isPinNetActive ? '#083344' : '#020617'}
+                                  fillOpacity="0.92"
+                                  stroke={
+                                    isPinNetActive
+                                      ? '#00f3ff'
+                                      : pin.category === 'ground'
+                                      ? '#10b981'
+                                      : '#f59e0b'
+                                  }
+                                  strokeWidth="1.2"
+                                />
+                                <text
+                                  x={labelX + 18}
+                                  y={labelY + 10.5}
+                                  textAnchor="middle"
+                                  fill={
+                                    isPinNetActive
+                                      ? '#67e8f9'
+                                      : pin.category === 'ground'
+                                      ? '#6ee7b7'
+                                      : '#fcd34d'
+                                  }
+                                  fontSize="9.5"
+                                  fontFamily="monospace"
+                                  fontWeight="bold"
+                                >
+                                  {mnaDetails.voltage.toFixed(2)}V
+                                </text>
+                              </g>
+                            )}
                           </g>
                         );
                       });
@@ -2834,6 +3311,8 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
               {showComponents &&
                 components.map((comp) => {
                   const isSelected = selectedCompRef === comp.refDes;
+                  const isTraceSourceA = tracePathPair[0] === comp.refDes;
+                  const isTraceTargetB = tracePathPair[1] === comp.refDes;
                   const isVerified = comp.verificationStatus === 'VERIFIED';
                   const activeNetObj = nets.find((n) => n.name === effectiveNetId);
                   const isCompInActiveNet = effectiveNetId
@@ -2872,8 +3351,14 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                         setHoveredPinNetId(null);
                       }}
                       onPointerDown={(e) => {
-                        if (interactionMode !== 'EDIT' || !boardRef.current) return;
                         if ((e.target as HTMLElement).dataset.noDrag === 'true') return;
+                        if (interactionMode === 'TRACE_PATH' || (interactionMode === 'EDIT' && e.shiftKey)) {
+                          e.stopPropagation();
+                          setSelectedCompRef(comp.refDes);
+                          handleSelectTracePathComponent(comp.refDes);
+                          return;
+                        }
+                        if (interactionMode !== 'EDIT' || !boardRef.current) return;
                         e.stopPropagation();
                         setSelectedCompRef(comp.refDes);
                         setInspectorSubTab('PART');
@@ -2896,7 +3381,11 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
-                          setSelectedCompRef(comp.refDes);
+                          if (interactionMode === 'TRACE_PATH') {
+                            handleSelectTracePathComponent(comp.refDes);
+                          } else {
+                            setSelectedCompRef(comp.refDes);
+                          }
                         }
                       }}
                       style={{
@@ -2905,7 +3394,11 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                         width: `${widthPct}%`,
                         height: `${heightPct}%`,
                       }}
-                      className={`group/comp absolute cursor-grab active:cursor-grabbing border-2 transition-shadow flex flex-col justify-between p-1.5 rounded-md focus:outline-none ${
+                      className={`group/comp absolute ${
+                        interactionMode === 'TRACE_PATH'
+                          ? 'cursor-crosshair'
+                          : 'cursor-grab active:cursor-grabbing'
+                      } border-2 transition-shadow flex flex-col justify-between p-1.5 rounded-md focus:outline-none ${
                         showThermalHeatmap
                           ? tempC >= 110
                             ? 'border-rose-500 bg-rose-950/85 text-rose-200 shadow-[0_0_24px_rgba(244,63,94,0.95)] animate-pulse z-25'
@@ -2914,6 +3407,10 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                             : tempC >= 48
                             ? 'border-orange-400 bg-orange-950/55 text-orange-200 z-25'
                             : 'border-sky-500/80 bg-sky-950/45 text-sky-200 z-25'
+                          : isTraceSourceA
+                          ? 'border-fuchsia-400 bg-fuchsia-950/80 shadow-[0_0_22px_rgba(232,121,249,0.7)] ring-2 ring-fuchsia-400 z-30'
+                          : isTraceTargetB
+                          ? 'border-cyan-300 bg-cyan-950/80 shadow-[0_0_22px_rgba(34,211,238,0.75)] ring-2 ring-cyan-300 z-30'
                           : isSelected
                           ? 'border-cyan-400 bg-cyan-950/80 shadow-2xl ring-2 ring-cyan-400/60 z-30'
                           : isCompInActiveNet
@@ -2932,6 +3429,10 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                                 : tempC >= 80
                                 ? 'text-amber-300 font-extrabold'
                                 : 'text-sky-300 font-extrabold'
+                              : isTraceSourceA
+                              ? 'text-fuchsia-300 font-extrabold'
+                              : isTraceTargetB
+                              ? 'text-cyan-200 font-extrabold'
                               : isSelected || isCompInActiveNet
                               ? 'text-cyan-300 font-extrabold'
                               : isVerified
@@ -2942,6 +3443,16 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                           {comp.refDes}
                         </span>
                         <div className="flex items-center gap-0.5 shrink-0">
+                          {isTraceSourceA && (
+                            <span className="text-[7px] bg-fuchsia-500 text-slate-950 px-1 rounded font-extrabold">
+                              TRACE A
+                            </span>
+                          )}
+                          {isTraceTargetB && (
+                            <span className="text-[7px] bg-cyan-300 text-slate-950 px-1 rounded font-extrabold">
+                              TRACE B
+                            </span>
+                          )}
                           {showThermalHeatmap && (
                             <span
                               className={`text-[8.5px] px-1 rounded font-bold border ${
@@ -2957,7 +3468,7 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                               {tempC}°C · {thermal.powerDissipationMw}mW
                             </span>
                           )}
-                          {!showThermalHeatmap && isCompInActiveNet && (
+                          {!showThermalHeatmap && !isTraceSourceA && !isTraceTargetB && isCompInActiveNet && (
                             <span className="text-[7px] bg-cyan-400 text-black px-1 rounded font-extrabold">
                               NET
                             </span>
@@ -2976,14 +3487,23 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                         {comp.marking || comp.category}
                       </div>
 
-                      {/* Component Pin Interactive Badges */}
+                      {/* Component Pin Interactive Badges with Automatic MNA Voltage Labeling */}
                       {comp.pinSpecs && comp.pinSpecs.length > 0 && (
                         <div className="flex items-center gap-0.5 flex-wrap pt-0.5 border-t border-slate-800/80">
-                          {comp.pinSpecs.slice(0, 8).map((pin) => {
+                          {comp.pinSpecs.slice(0, 8).map((pin, idx) => {
                             const isPinSelected =
                               selectedPinNumber === pin.pinNumber && selectedCompRef === comp.refDes;
                             const isPinNetActive = effectiveNetId === pin.connectedNetId;
-                            const liveV = resolveLiveNetVoltage(pin.connectedNetId, pin.nominalVoltage);
+                            const mnaDetails = resolveMnaNodeDetails(
+                              pin.connectedNetId,
+                              pin.nominalVoltage
+                            );
+                            const liveV = mnaDetails.voltage;
+                            const pinCoords = computeComponentPinCoords(
+                              comp,
+                              idx,
+                              comp.pinSpecs?.length || 1
+                            );
                             return (
                               <button
                                 key={pin.pinNumber}
@@ -2992,12 +3512,31 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                                   if (pin.connectedNetId && pin.connectedNetId !== 'NET_UNASSIGNED') {
                                     setHoveredPinNetId(pin.connectedNetId);
                                   }
+                                  setHoveredNodeTooltip({
+                                    nodeLabel: `${comp.refDes} · Pin #${pin.pinNumber} (${pin.pinName})`,
+                                    compRefDes: comp.refDes,
+                                    pinNumber: pin.pinNumber,
+                                    pinName: pin.pinName,
+                                    netId: pin.connectedNetId,
+                                    mnaSourceNode: mnaDetails.mnaNodeId,
+                                    detectedVoltage: liveV,
+                                    nominalVoltage: pin.nominalVoltage,
+                                    category: pin.category,
+                                    notes: pin.notes,
+                                    xNorm: pinCoords.x,
+                                    yNorm: pinCoords.y,
+                                  });
                                 }}
                                 onMouseLeave={() => {
                                   setHoveredPinNetId(null);
+                                  setHoveredNodeTooltip(null);
                                 }}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  if (interactionMode === 'TRACE_PATH' || e.shiftKey) {
+                                    handleSelectTracePathComponent(comp.refDes);
+                                    return;
+                                  }
                                   setSelectedCompRef(comp.refDes);
                                   setSelectedPinNumber(pin.pinNumber);
                                   setActiveNetId(pin.connectedNetId);
@@ -3007,11 +3546,11 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                                     ? connectedNet.connectedComponentRefs.join(', ')
                                     : comp.refDes;
                                   setStatusMessage(
-                                    `PIN #${pin.pinNumber} (${pin.pinName}) · ${liveV.toFixed(2)}V DC · Net [${pin.connectedNetId}] -> ${nodes}`
+                                    `PIN #${pin.pinNumber} (${pin.pinName}) · ${liveV.toFixed(3)}V DC · Net [${pin.connectedNetId}] -> ${nodes}`
                                   );
                                 }}
-                                title={`Pin #${pin.pinNumber} (${pin.pinName}) | ${liveV.toFixed(2)}V | Net: ${pin.connectedNetId}`}
-                                className={`px-1 rounded text-[7.5px] font-mono font-bold transition flex items-center gap-0.5 ${
+                                title={`${comp.refDes} Pin #${pin.pinNumber} (${pin.pinName}) — Detected MNA Voltage: ${liveV.toFixed(3)} V DC (Nominal: ${pin.nominalVoltage.toFixed(2)} V) | Net: ${pin.connectedNetId}`}
+                                className={`px-1 rounded text-[7px] font-mono font-bold transition flex items-center gap-0.5 ${
                                   isPinSelected
                                     ? 'bg-cyan-300 text-black ring-1 ring-white font-extrabold'
                                     : isPinNetActive
@@ -3020,6 +3559,19 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                                 }`}
                               >
                                 <span>#{pin.pinNumber}</span>
+                                {showVoltageLabels && (
+                                  <span
+                                    className={
+                                      isPinSelected
+                                        ? 'text-slate-950 font-extrabold'
+                                        : pin.category === 'ground'
+                                        ? 'text-emerald-300'
+                                        : 'text-amber-300'
+                                    }
+                                  >
+                                    {liveV.toFixed(2)}V
+                                  </span>
+                                )}
                               </button>
                             );
                           })}
@@ -3048,54 +3600,236 @@ export const SchematicPcbScanner: React.FC<SchematicPcbScannerProps> = ({
                         />
                       )}
 
-                      {/* Hover Contextual Spec & Live Electro-Thermal Tooltip */}
-                      <div
-                        className={`opacity-0 group-hover/comp:opacity-100 pointer-events-none absolute ${positionY} ${positionX} w-68 bg-slate-950/95 backdrop-blur-md border border-cyan-500/70 text-slate-100 p-2.5 rounded-lg shadow-2xl z-40 transition-opacity duration-150 font-mono`}
-                      >
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <strong className="text-cyan-300 text-xs">{comp.refDes}</strong>
-                            <span className="text-[10px] text-slate-400 font-sans truncate max-w-[120px]">
-                              {comp.category.replace(/_/g, ' ')}
+                      {/* Hover Contextual Spec & Live Electro-Thermal Tooltip (hidden when hovering a specific pin node so node tooltip takes focus) */}
+                      {!hoveredNodeTooltip && (
+                        <div
+                          className={`opacity-0 group-hover/comp:opacity-100 pointer-events-none absolute ${positionY} ${positionX} w-68 bg-slate-950/95 backdrop-blur-md border border-cyan-500/70 text-slate-100 p-2.5 rounded-lg shadow-2xl z-40 transition-opacity duration-150 font-mono`}
+                        >
+                          <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <strong className="text-cyan-300 text-xs">{comp.refDes}</strong>
+                              <span className="text-[10px] text-slate-400 font-sans truncate max-w-[120px]">
+                                {comp.category.replace(/_/g, ' ')}
+                              </span>
+                            </div>
+                            <span className="text-[9px] px-1.5 rounded font-bold bg-slate-900 border border-slate-700 text-amber-300 tabular-nums">
+                              {thermal.tempC.toFixed(1)}°C ({thermal.powerDissipationMw}mW)
                             </span>
                           </div>
-                          <span className="text-[9px] px-1.5 rounded font-bold bg-slate-900 border border-slate-700 text-amber-300 tabular-nums">
-                            {thermal.tempC.toFixed(1)}°C ({thermal.powerDissipationMw}mW)
-                          </span>
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
+                            <div>
+                              <span className="text-slate-500 text-[8.5px] block font-sans">Package</span>
+                              <span className="font-semibold text-slate-100 truncate block">
+                                {comp.packageType || 'SMD'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 text-[8.5px] block font-sans">Rating</span>
+                              <span className="font-semibold text-cyan-300 truncate block">
+                                {comp.operatingVoltageRange || '5V DC'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 text-[8.5px] block font-sans">Marking</span>
+                              <span className="font-semibold text-amber-300 truncate block">
+                                {comp.marking || comp.decodedValue || 'N/A'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 text-[8.5px] block font-sans">Thermal RθJA</span>
+                              <span className="font-semibold text-emerald-300 truncate block">
+                                {thermal.thermalResistanceJa} °C/W
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-1.5 pt-1 border-t border-slate-800/80 text-[9px] text-slate-400 font-sans truncate">
+                            {thermal.dominantHeatSource}
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
-                          <div>
-                            <span className="text-slate-500 text-[8.5px] block font-sans">Package</span>
-                            <span className="font-semibold text-slate-100 truncate block">
-                              {comp.packageType || 'SMD'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 text-[8.5px] block font-sans">Rating</span>
-                            <span className="font-semibold text-cyan-300 truncate block">
-                              {comp.operatingVoltageRange || '5V DC'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 text-[8.5px] block font-sans">Marking</span>
-                            <span className="font-semibold text-amber-300 truncate block">
-                              {comp.marking || comp.decodedValue || 'N/A'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 text-[8.5px] block font-sans">Thermal RθJA</span>
-                            <span className="font-semibold text-emerald-300 truncate block">
-                              {thermal.thermalResistanceJa} °C/W
-                            </span>
-                          </div>
-                        </div>
-                        <div className="mt-1.5 pt-1 border-t border-slate-800/80 text-[9px] text-slate-400 font-sans truncate">
-                          {thermal.dominantHeatSource}
-                        </div>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
+
+              {/* Continuous Highlighted Trace Path Between Two Clicked Components on Node Hover */}
+              {highlightedContinuousPath && highlightedContinuousPath.points.length >= 2 && (
+                <svg
+                  viewBox="0 0 1000 1000"
+                  preserveAspectRatio="none"
+                  className="absolute inset-0 w-full h-full z-35 pointer-events-none"
+                >
+                  <defs>
+                    <linearGradient id="tracePathGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#e879f9" />
+                      <stop offset="50%" stopColor="#22d3ee" />
+                      <stop offset="100%" stopColor="#38bdf8" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Outer luminous halo */}
+                  <polyline
+                    points={highlightedContinuousPath.pointsStr}
+                    fill="none"
+                    stroke={highlightedContinuousPath.isNetVerified ? '#22d3ee' : '#e879f9'}
+                    strokeWidth="16"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.35"
+                  />
+
+                  {/* Crisp continuous core conductor */}
+                  <polyline
+                    points={highlightedContinuousPath.pointsStr}
+                    fill="none"
+                    stroke="url(#tracePathGradient)"
+                    strokeWidth="6.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  {/* Animated electron signal flow dashes */}
+                  <polyline
+                    points={highlightedContinuousPath.pointsStr}
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="2.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray="10,8"
+                    className="animate-electron-flow"
+                  />
+
+                  {/* Component A Anchor Marker */}
+                  <circle
+                    cx={highlightedContinuousPath.anchorA.x}
+                    cy={highlightedContinuousPath.anchorA.y}
+                    r="13"
+                    fill="#d946ef"
+                    fillOpacity="0.28"
+                    stroke="#f0abfc"
+                    strokeWidth="3"
+                  />
+                  <circle
+                    cx={highlightedContinuousPath.anchorA.x}
+                    cy={highlightedContinuousPath.anchorA.y}
+                    r="5"
+                    fill="#ffffff"
+                  />
+
+                  {/* Hovered Node Junction Ring */}
+                  <circle
+                    cx={highlightedContinuousPath.hoverPt.x}
+                    cy={highlightedContinuousPath.hoverPt.y}
+                    r="15"
+                    fill="none"
+                    stroke="#fde047"
+                    strokeWidth="2.8"
+                    strokeDasharray="4,3"
+                  />
+                  <circle
+                    cx={highlightedContinuousPath.hoverPt.x}
+                    cy={highlightedContinuousPath.hoverPt.y}
+                    r="5.5"
+                    fill="#fde047"
+                  />
+
+                  {/* Component B Anchor Marker */}
+                  <circle
+                    cx={highlightedContinuousPath.anchorB.x}
+                    cy={highlightedContinuousPath.anchorB.y}
+                    r="13"
+                    fill="#06b6d4"
+                    fillOpacity="0.28"
+                    stroke="#67e8f9"
+                    strokeWidth="3"
+                  />
+                  <circle
+                    cx={highlightedContinuousPath.anchorB.x}
+                    cy={highlightedContinuousPath.anchorB.y}
+                    r="5"
+                    fill="#ffffff"
+                  />
+                </svg>
+              )}
+
+              {/* Floating Precision MNA Node Voltage Tooltip on Pin / Node Hover */}
+              {hoveredNodeTooltip && (
+                <div
+                  style={{
+                    top: `${Math.min(76, Math.max(8, (hoveredNodeTooltip.yNorm / 1000) * 100 - 14))}%`,
+                    left: `${Math.min(64, Math.max(4, (hoveredNodeTooltip.xNorm / 1000) * 100 + 3))}%`,
+                  }}
+                  className="pointer-events-none absolute z-50 w-72 bg-slate-950/95 backdrop-blur-md border-2 border-cyan-400 text-slate-100 p-3 rounded-xl shadow-[0_0_25px_rgba(0,243,255,0.45)] font-mono text-[10px]"
+                >
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5 mb-2">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span className="font-bold text-cyan-300 truncate">
+                        {hoveredNodeTooltip.nodeLabel}
+                      </span>
+                    </div>
+                    <span className="text-[8.5px] px-1.5 py-0.5 rounded bg-cyan-950 border border-cyan-500/50 text-cyan-200 uppercase shrink-0">
+                      MNA PROBE
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 bg-slate-900/90 p-2 rounded-lg border border-slate-800 mb-2">
+                    <div>
+                      <span className="text-[8.5px] text-slate-400 block font-sans">
+                        Detected MNA Voltage
+                      </span>
+                      <span className="text-sm font-extrabold text-amber-300 tabular-nums">
+                        {hoveredNodeTooltip.detectedVoltage.toFixed(3)} V DC
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[8.5px] text-slate-400 block font-sans">
+                        Nominal Spec / ΔV
+                      </span>
+                      <span className="text-xs font-bold text-slate-200 tabular-nums block">
+                        {hoveredNodeTooltip.nominalVoltage.toFixed(2)} V (
+                        {hoveredNodeTooltip.detectedVoltage - hoveredNodeTooltip.nominalVoltage >= 0
+                          ? '+'
+                          : ''}
+                        {(
+                          hoveredNodeTooltip.detectedVoltage - hoveredNodeTooltip.nominalVoltage
+                        ).toFixed(2)}
+                        V)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1 text-[9.5px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">PCB Net ID:</span>
+                      <span className="font-bold text-cyan-300">{hoveredNodeTooltip.netId}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">MNA Solver Node:</span>
+                      <span className="font-semibold text-emerald-300 truncate max-w-[165px]">
+                        {hoveredNodeTooltip.mnaSourceNode}
+                      </span>
+                    </div>
+                  </div>
+
+                  {highlightedContinuousPath && (
+                    <div className="mt-1.5 pt-1.5 border-t border-fuchsia-500/40 text-[9px] font-mono text-fuchsia-200 flex items-center justify-between gap-2">
+                      <span className="font-bold truncate">
+                        PATH: {highlightedContinuousPath.compA} ↔ {highlightedContinuousPath.compB}
+                      </span>
+                      <span className="px-1 py-0.5 rounded bg-fuchsia-950/90 border border-fuchsia-500/50 text-[8px] shrink-0">
+                        {highlightedContinuousPath.isNetVerified ? 'NET VERIFIED' : 'NODE ROUTE'}
+                      </span>
+                    </div>
+                  )}
+
+                  {hoveredNodeTooltip.notes && (
+                    <div className="mt-1.5 pt-1.5 border-t border-slate-800/80 text-[9px] text-slate-300 font-sans leading-snug">
+                      {hoveredNodeTooltip.notes}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Thermal Heatmap Legend & Ambient Temperature Control Bar */}
               {showThermalHeatmap && (
